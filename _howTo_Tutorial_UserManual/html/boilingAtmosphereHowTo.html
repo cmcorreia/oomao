@@ -1,0 +1,888 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>boilingAtmosphereHowTo</title><meta name="generator" content="MATLAB 8.5"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2018-04-05"><meta name="DC.source" content="boilingAtmosphereHowTo.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#2">INIT</a></li><li><a href="#3">ATMOSPHERE</a></li><li><a href="#4">start atmosphere (frozen-flow)</a></li><li><a href="#5">start atmoshere (boiling)</a></li><li><a href="#6">ITERATE (JUST FOR VISUALISATION PURPOSES, OTHERWISE SKIP TO NEXT CELL)</a></li><li><a href="#7">CHECK STATS</a></li></ul></div><pre class="codeinput"><span class="comment">%This script provides an implementation of the boiling atmosphere model in</span>
+<span class="comment">%Srinath et al, An Efficient Autoregressive Method for Generating Phase</span>
+<span class="comment">%Screens with Frozen Flow and Turbulence in Optical Simulations, Opt Exp</span>
+<span class="comment">%2015</span>
+<span class="comment">% The spatial and temporal statistics are evaluated and compared to the</span>
+<span class="comment">% default OOMAO implementation of frozen-flow phase-screens</span>
+<span class="comment">%</span>
+<span class="comment">% Spatial statistics are quite close to the theory with frozen atmosphere</span>
+<span class="comment">% converging much faster than boiling atmosphere. The frozen atmosphere</span>
+<span class="comment">% follows quite well the theoretical temporal PSDs from Conan95 whereas the</span>
+<span class="comment">% boiling deviates from those. Although this is expected, the deviations</span>
+<span class="comment">% are rather difficult to explain. TBD develop an analytic modelfor the</span>
+<span class="comment">% temporal PSD of the boiling atmosphere...</span>
+</pre><h2>INIT<a name="2"></a></h2><pre class="codeinput">nPixel  = 128;  <span class="comment">% output phaseScreen size</span>
+D       = 4;    <span class="comment">% physical dimensions of the phaseScrenn in m</span>
+T       = 1/100;<span class="comment">% samplingTime in s</span>
+vx      = 100;  <span class="comment">% windSpeed in x</span>
+vy      = 100;  <span class="comment">% windSpeed in y</span>
+alpha   = 0.999;<span class="comment">% auto-regressive "forgetting" factor</span>
+u       = 1:nPixel;
+</pre><h2>ATMOSPHERE<a name="3"></a></h2><p>3-layer atm = atmosphere(photometry.V,0.15,30,...     'altitude',[0,4,10]*1e3,...     'fractionnalR0',[0.7,0.25,0.05],...     'windSpeed',[5,10,20],...     'windDirection',[0,pi/4,pi]);</p><pre class="codeinput"><span class="comment">%1-layer</span>
+atm = atmosphere(photometry.V,0.15,30,<span class="keyword">...</span>
+    <span class="string">'altitude'</span>,[0]*1e3,<span class="keyword">...</span>
+    <span class="string">'fractionnalR0'</span>,[1],<span class="keyword">...</span>
+    <span class="string">'windSpeed'</span>,[10*sqrt(2)],<span class="keyword">...</span>
+    <span class="string">'windDirection'</span>,[pi/4]);
+
+<span class="comment">% telescope</span>
+tel = telescope(D,<span class="string">'resolution'</span>,nPixel,<span class="string">'samplingTime'</span>,T);
+</pre><pre class="codeoutput"> @(atmosphere)&gt; Created!
+ @(telescope)&gt; Created!
+___ TELESCOPE ___
+ 4.00m diameter full aperture with 12.57m^2 of light collecting area;
+ the pupil is sampled with 128X128 pixels
+----------------------------------------------------
+</pre><h2>start atmosphere (frozen-flow)<a name="4"></a></h2><pre class="codeinput">tel = tel + atm;
+</pre><pre class="codeoutput"> @(telescope)&gt; Initializing phase screens making parameters:
+   Layer 1:
+            -&gt; Computing initial phase screen (D=4.00m,n=128px) ...  Done 
+            -&gt; # of elements for the outer maks: 516 and for the inner mask 1008
+            -&gt; Computing matrix A and B for layer 1: ZZt , ZXt , XXt ...  Done 
+</pre><h2>start atmoshere (boiling)<a name="5"></a></h2><pre class="codeinput">nTimes = 4;
+N = nTimes*nPixel;
+L = (N-1)*D/(nPixel-1);
+
+[fx,fy]  = freqspace(N,<span class="string">'meshgrid'</span>);
+[~,fr]  = cart2pol(fx,fy);
+fr  = fftshift(fr.*(N-1)/L./2);
+
+[X,Y] = ndgrid(-N/2:N/2-1);
+X = X/(nPixel*D);
+Y = X';
+
+spatialShiftWindPhasor = fftshift(exp(-1i*2*pi*T*(X*vx + Y*vy)));
+
+
+<span class="comment">% sqrt(psd) of full phase screen</span>
+spectrumVK  = phaseStats.spectrum(fr,atm);
+psdRoot     = sqrt(spectrumVK); <span class="comment">% Phase FT magnitude</span>
+[idx]       = find(fr==0);
+psdRoot(idx)= 0;
+fourierSampling = 1./L;
+WNF         = fft2(randn(atm.rngStream,N))./N; <span class="comment">% White noise filtering</span>
+map         = psdRoot.*WNF;
+map         = real(ifft2(map).*fourierSampling).*N.^2;
+
+imagesc(map(u,u))
+</pre><img vspace="5" hspace="5" src="boilingAtmosphereHowTo_01.png" alt=""> <h2>ITERATE (JUST FOR VISUALISATION PURPOSES, OTHERWISE SKIP TO NEXT CELL)<a name="6"></a></h2><p>spectrum_old is the spectrum from the previous timestep, alpha is the boiling coefficient</p><pre class="codeinput">WNF         = fft2(randn(atm.rngStream,N))./N; <span class="comment">% White noise filtering</span>
+spectrum    = psdRoot.*WNF;
+alpha       = 0.99;<span class="comment">% auto-regressive "forgetting" factor</span>
+CLIM        = [-50 50];
+<span class="keyword">for</span> kIter = 1:100
+    WNF         = fft2(randn(atm.rngStream,N))./N; <span class="comment">% White noise filtering</span>
+    spectrum    = alpha*spatialShiftWindPhasor.*spectrum + sqrt(1-alpha^2)*psdRoot.*WNF;
+    map         = real(ifft2(spectrum).*fourierSampling).*N.^2;
+    imagesc(map, CLIM), colorbar, drawnow
+<span class="keyword">end</span>
+</pre><img vspace="5" hspace="5" src="boilingAtmosphereHowTo_02.png" alt=""> <h2>CHECK STATS<a name="7"></a></h2><pre class="codeinput">zern = zernike(2:100,D,<span class="string">'resolution'</span>,nPixel);
+src = source;
+
+spectrum    = psdRoot.*WNF;
+alpha       = 0.99;<span class="comment">% auto-regressive "forgetting" factor</span>
+CLIM        = [-50 50];
+<span class="keyword">for</span> kIter = 1:100
+    WNF         = fft2(randn(atm.rngStream,N))./N; <span class="comment">% White noise filtering</span>
+    spectrum    = alpha*spatialShiftWindPhasor.*spectrum + sqrt(1-alpha^2)*psdRoot.*WNF;
+    map         = real(ifft2(spectrum).*fourierSampling).*N.^2;
+    <span class="comment">%imagesc(map, CLIM), colorbar, drawnow</span>
+    ps = map(u,u);
+    zern\ps(:);
+    boiling(:,kIter) = zern.c;
+    +tel;
+    src = src.*tel;
+    zern\src;
+    frozen(:,kIter) = zern.c*2*pi/src.wavelength;
+    kIter
+<span class="keyword">end</span>
+
+semilogy(var(boiling'))
+hold <span class="string">on</span>
+semilogy(var(frozen'))
+
+semilogy(zernikeStats.variance(zern, atm, src),<span class="string">'k'</span>,<span class="string">'linewidth'</span>,2)
+title(<span class="string">'Cheking Zernike polynomials spatial variance'</span>)
+ylabel(<span class="string">'[rad^2 @ 550nm]'</span>)
+xlabel(<span class="string">'zernike mode number j'</span>)
+set(gca,<span class="string">'fontSize'</span>,16)
+legend(<span class="string">'Boiling atmosphere'</span>,<span class="string">'Frozen-flow atmosphere'</span>,<span class="string">'Theory'</span>)
+<span class="comment">% COMMENT: Agreement is quite good withas few as 100 timeSteps. With 1000</span>
+<span class="comment">% the agreement is quasi-perfect. The stasts converge towards the</span>
+<span class="comment">% theoretical ones</span>
+</pre><pre class="codeoutput"> @(zernike polynomials)&gt; Created!
+___ ZERNIKE POLYNOMIALS ___
+ . 99 modes: [ 2 , 100 ]
+----------------------------------------------------
+ @(source)&gt; Created!
+___ SOURCE ___
+ Obj   zen[arcsec] azim[deg]  height[m]  lambda[micron] magnitude
+  1      0.00        0.00         Inf     0.550           0.00
+----------------------------------------------------
+ @(telescope)&gt; Deleting atmosphere layer slabs!
+ @(telescope)&gt; Terminated!
+ @(atmosphere)&gt; Terminated!
+ @(source)&gt; Terminated!
+ @(zernike polynomials)&gt; Terminated!
+ @(source)&gt; Computing the objective wavefront transmitance ...
+
+kIter =
+
+     1
+
+
+kIter =
+
+     2
+
+
+kIter =
+
+     3
+
+
+kIter =
+
+     4
+
+
+kIter =
+
+     5
+
+
+kIter =
+
+     6
+
+
+kIter =
+
+     7
+
+
+kIter =
+
+     8
+
+
+kIter =
+
+     9
+
+
+kIter =
+
+    10
+
+
+kIter =
+
+    11
+
+
+kIter =
+
+    12
+
+
+kIter =
+
+    13
+
+
+kIter =
+
+    14
+
+
+kIter =
+
+    15
+
+
+kIter =
+
+    16
+
+
+kIter =
+
+    17
+
+
+kIter =
+
+    18
+
+
+kIter =
+
+    19
+
+
+kIter =
+
+    20
+
+
+kIter =
+
+    21
+
+
+kIter =
+
+    22
+
+
+kIter =
+
+    23
+
+
+kIter =
+
+    24
+
+
+kIter =
+
+    25
+
+
+kIter =
+
+    26
+
+
+kIter =
+
+    27
+
+
+kIter =
+
+    28
+
+
+kIter =
+
+    29
+
+
+kIter =
+
+    30
+
+
+kIter =
+
+    31
+
+
+kIter =
+
+    32
+
+
+kIter =
+
+    33
+
+
+kIter =
+
+    34
+
+
+kIter =
+
+    35
+
+
+kIter =
+
+    36
+
+
+kIter =
+
+    37
+
+
+kIter =
+
+    38
+
+
+kIter =
+
+    39
+
+
+kIter =
+
+    40
+
+
+kIter =
+
+    41
+
+
+kIter =
+
+    42
+
+
+kIter =
+
+    43
+
+
+kIter =
+
+    44
+
+
+kIter =
+
+    45
+
+
+kIter =
+
+    46
+
+
+kIter =
+
+    47
+
+
+kIter =
+
+    48
+
+
+kIter =
+
+    49
+
+
+kIter =
+
+    50
+
+
+kIter =
+
+    51
+
+
+kIter =
+
+    52
+
+
+kIter =
+
+    53
+
+
+kIter =
+
+    54
+
+
+kIter =
+
+    55
+
+
+kIter =
+
+    56
+
+
+kIter =
+
+    57
+
+
+kIter =
+
+    58
+
+
+kIter =
+
+    59
+
+
+kIter =
+
+    60
+
+
+kIter =
+
+    61
+
+
+kIter =
+
+    62
+
+
+kIter =
+
+    63
+
+
+kIter =
+
+    64
+
+
+kIter =
+
+    65
+
+
+kIter =
+
+    66
+
+
+kIter =
+
+    67
+
+
+kIter =
+
+    68
+
+
+kIter =
+
+    69
+
+
+kIter =
+
+    70
+
+
+kIter =
+
+    71
+
+
+kIter =
+
+    72
+
+
+kIter =
+
+    73
+
+
+kIter =
+
+    74
+
+
+kIter =
+
+    75
+
+
+kIter =
+
+    76
+
+
+kIter =
+
+    77
+
+
+kIter =
+
+    78
+
+
+kIter =
+
+    79
+
+
+kIter =
+
+    80
+
+
+kIter =
+
+    81
+
+
+kIter =
+
+    82
+
+
+kIter =
+
+    83
+
+
+kIter =
+
+    84
+
+
+kIter =
+
+    85
+
+
+kIter =
+
+    86
+
+
+kIter =
+
+    87
+
+
+kIter =
+
+    88
+
+
+kIter =
+
+    89
+
+
+kIter =
+
+    90
+
+
+kIter =
+
+    91
+
+
+kIter =
+
+    92
+
+
+kIter =
+
+    93
+
+
+kIter =
+
+    94
+
+
+kIter =
+
+    95
+
+
+kIter =
+
+    96
+
+
+kIter =
+
+    97
+
+
+kIter =
+
+    98
+
+
+kIter =
+
+    99
+
+
+kIter =
+
+   100
+
+</pre><img vspace="5" hspace="5" src="boilingAtmosphereHowTo_03.png" alt=""> <pre class="codeinput">figure(2)
+clf
+jMode = 20;
+nu = logspace(-1,log10(50),200);
+zern1 = zernike(jMode,D,<span class="string">'resolution'</span>,nPixel);
+[out] = lamTools.multiZernikeTemporalSpectra(nu,atm,zern1,tel);
+fprintf(<span class="string">'Zernike polynomial variance from temporal spectrum:%f, from spatial variance: %f \n'</span>, <span class="keyword">...</span>
+    trapz(nu,out), zernikeStats.variance(zern1, atm, src))
+loglog(nu, out)
+hold <span class="string">on</span>
+<span class="comment">%[Y,f] = myPSD(boiling(jMode-1,:),1/T,0);</span>
+<span class="comment">%fprintf('Zernike polynomial variance from EMPIRICAL temporal spectrum:%f\n', trapz(f,Y))</span>
+
+[psdj,nuj] = pwelch(boiling(jMode-1,:),[],[],[],T);
+psdj = psdj*T^2;
+nuj = nuj*2/T*1/2/T;
+loglog(nuj, psdj)
+
+[psdj,nuj] = pwelch(frozen(jMode-1,:),[],[],[],T);
+psdj = psdj*T^2;
+nuj = nuj*2/T*1/2/T;
+loglog(nuj, psdj)
+xlabel(<span class="string">'temporal frequency,[Hz]'</span>)
+ylabel(<span class="string">'[rad^2/Hz]'</span>)
+title([<span class="string">'Temporal PSD mode '</span> num2str(jMode)])
+legend(<span class="string">'Theory'</span>,<span class="string">'pwelch boiling'</span>,<span class="string">'pwelch frozen'</span>)
+set(gca,<span class="string">'fontSize'</span>,16)
+</pre><pre class="codeoutput"> @(zernike polynomials)&gt; Created!
+___ ZERNIKE POLYNOMIALS ___
+ . mode: 20 
+----------------------------------------------------
+ @(zernike polynomials)&gt; Terminated!
+~~~~~~~~~~~~~~~~~~~
+ BEWARE OF OOMAO!
+~~~~~~~~~~~~~~~~~~~
+ @(logBook)&gt; Opening the log book!
+___ ZERNIKE POLYNOMIALS ___
+ . mode: 20 
+----------------------------------------------------
+ @(logBook)&gt; Closing the log book!
+~~~~~~~~~~~~~~~~~~~
+ OOMAO'S GONE!
+~~~~~~~~~~~~~~~~~~~
+Zernike polynomial variance from temporal spectrum:0.278101, from spatial variance: 0.280686 
+</pre><img vspace="5" hspace="5" src="boilingAtmosphereHowTo_04.png" alt=""> <p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2015a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+%This script provides an implementation of the boiling atmosphere model in
+%Srinath et al, An Efficient Autoregressive Method for Generating Phase
+%Screens with Frozen Flow and Turbulence in Optical Simulations, Opt Exp
+%2015
+% The spatial and temporal statistics are evaluated and compared to the
+% default OOMAO implementation of frozen-flow phase-screens
+%
+% Spatial statistics are quite close to the theory with frozen atmosphere
+% converging much faster than boiling atmosphere. The frozen atmosphere
+% follows quite well the theoretical temporal PSDs from Conan95 whereas the
+% boiling deviates from those. Although this is expected, the deviations
+% are rather difficult to explain. TBD develop an analytic modelfor the
+% temporal PSD of the boiling atmosphere...
+%% INIT
+nPixel  = 128;  % output phaseScreen size
+D       = 4;    % physical dimensions of the phaseScrenn in m
+T       = 1/100;% samplingTime in s
+vx      = 100;  % windSpeed in x    
+vy      = 100;  % windSpeed in y
+alpha   = 0.999;% auto-regressive "forgetting" factor
+u       = 1:nPixel;
+%% ATMOSPHERE
+% 3-layer
+% atm = atmosphere(photometry.V,0.15,30,...
+%     'altitude',[0,4,10]*1e3,...
+%     'fractionnalR0',[0.7,0.25,0.05],...
+%     'windSpeed',[5,10,20],...
+%     'windDirection',[0,pi/4,pi]);
+
+%1-layer
+atm = atmosphere(photometry.V,0.15,30,...
+    'altitude',[0]*1e3,...
+    'fractionnalR0',[1],...
+    'windSpeed',[10*sqrt(2)],...
+    'windDirection',[pi/4]);
+
+% telescope
+tel = telescope(D,'resolution',nPixel,'samplingTime',T);
+
+%% start atmosphere (frozen-flow)
+tel = tel + atm;
+
+%% start atmoshere (boiling)
+nTimes = 4;
+N = nTimes*nPixel;
+L = (N-1)*D/(nPixel-1);
+
+[fx,fy]  = freqspace(N,'meshgrid');
+[~,fr]  = cart2pol(fx,fy);
+fr  = fftshift(fr.*(N-1)/L./2);
+
+[X,Y] = ndgrid(-N/2:N/2-1);
+X = X/(nPixel*D);
+Y = X';
+
+spatialShiftWindPhasor = fftshift(exp(-1i*2*pi*T*(X*vx + Y*vy)));
+
+
+% sqrt(psd) of full phase screen
+spectrumVK  = phaseStats.spectrum(fr,atm);
+psdRoot     = sqrt(spectrumVK); % Phase FT magnitude
+[idx]       = find(fr==0);
+psdRoot(idx)= 0;
+fourierSampling = 1./L;
+WNF         = fft2(randn(atm.rngStream,N))./N; % White noise filtering
+map         = psdRoot.*WNF;
+map         = real(ifft2(map).*fourierSampling).*N.^2;
+
+imagesc(map(u,u))
+
+%% ITERATE (JUST FOR VISUALISATION PURPOSES, OTHERWISE SKIP TO NEXT CELL)
+% spectrum_old is the spectrum from the previous timestep, alpha is the boiling coefficient
+WNF         = fft2(randn(atm.rngStream,N))./N; % White noise filtering
+spectrum    = psdRoot.*WNF;
+alpha       = 0.99;% auto-regressive "forgetting" factor
+CLIM        = [-50 50];
+for kIter = 1:100
+    WNF         = fft2(randn(atm.rngStream,N))./N; % White noise filtering
+    spectrum    = alpha*spatialShiftWindPhasor.*spectrum + sqrt(1-alpha^2)*psdRoot.*WNF;
+    map         = real(ifft2(spectrum).*fourierSampling).*N.^2;
+    imagesc(map, CLIM), colorbar, drawnow
+end
+
+%% CHECK STATS
+zern = zernike(2:100,D,'resolution',nPixel);
+src = source;
+
+spectrum    = psdRoot.*WNF;
+alpha       = 0.99;% auto-regressive "forgetting" factor
+CLIM        = [-50 50];
+for kIter = 1:100
+    WNF         = fft2(randn(atm.rngStream,N))./N; % White noise filtering
+    spectrum    = alpha*spatialShiftWindPhasor.*spectrum + sqrt(1-alpha^2)*psdRoot.*WNF;
+    map         = real(ifft2(spectrum).*fourierSampling).*N.^2;
+    %imagesc(map, CLIM), colorbar, drawnow
+    ps = map(u,u);
+    zern\ps(:);
+    boiling(:,kIter) = zern.c;
+    +tel;
+    src = src.*tel;
+    zern\src;
+    frozen(:,kIter) = zern.c*2*pi/src.wavelength;
+    kIter
+end
+
+semilogy(var(boiling'))
+hold on
+semilogy(var(frozen'))
+
+semilogy(zernikeStats.variance(zern, atm, src),'k','linewidth',2)
+title('Cheking Zernike polynomials spatial variance')
+ylabel('[rad^2 @ 550nm]')
+xlabel('zernike mode number j')
+set(gca,'fontSize',16)
+legend('Boiling atmosphere','Frozen-flow atmosphere','Theory')
+% COMMENT: Agreement is quite good withas few as 100 timeSteps. With 1000
+% the agreement is quasi-perfect. The stasts converge towards the
+% theoretical ones
+%%
+figure(2)
+clf
+jMode = 20;
+nu = logspace(-1,log10(50),200);
+zern1 = zernike(jMode,D,'resolution',nPixel);
+[out] = lamTools.multiZernikeTemporalSpectra(nu,atm,zern1,tel);
+fprintf('Zernike polynomial variance from temporal spectrum:%f, from spatial variance: %f \n', ...
+    trapz(nu,out), zernikeStats.variance(zern1, atm, src))
+loglog(nu, out)
+hold on
+%[Y,f] = myPSD(boiling(jMode-1,:),1/T,0);
+%fprintf('Zernike polynomial variance from EMPIRICAL temporal spectrum:%f\n', trapz(f,Y))
+
+[psdj,nuj] = pwelch(boiling(jMode-1,:),[],[],[],T);
+psdj = psdj*T^2;
+nuj = nuj*2/T*1/2/T;
+loglog(nuj, psdj)
+
+[psdj,nuj] = pwelch(frozen(jMode-1,:),[],[],[],T);
+psdj = psdj*T^2;
+nuj = nuj*2/T*1/2/T;
+loglog(nuj, psdj)
+xlabel('temporal frequency,[Hz]')
+ylabel('[rad^2/Hz]')
+title(['Temporal PSD mode ' num2str(jMode)])
+legend('Theory','pwelch boiling','pwelch frozen')
+set(gca,'fontSize',16)
+##### SOURCE END #####
+--></body></html>

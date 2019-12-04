@@ -2376,10 +2376,9 @@ classdef shackHartmann < hgsetget
         
                 %% get reconstruction grid - used in caes where a phase is reconstructed where the actuators are located, or a oversampling is applied
                 function val = reconstructionGrid(obj,os)
-                % os stands for overSampling. Can be 1 or 2. If
-                % os=1, reconstructionGrid pitch =
-                % subaperturePitch, if os=2, reconstructionGrid pitch =
-                % subaperturePitch/2
+                % os stands for overSampling. Can be 1 or 2. 
+                % If os=1, reconstructionGrid pitch = subaperturePitch, 
+                % if os=2, reconstructionGrid pitch = subaperturePitch/2
             if nargin == 0
                 val = get.validActuator(obj);
             elseif os ==2

@@ -417,7 +417,7 @@ classdef shackHartmann < hgsetget
                 catch ME
                     fprintf( '@(shackHartmann)> %s\n',ME.identifier)
                     obj.indexRasterLenslet ...
-                        = utilities.rearrange([nPx,mPx],[nPxLenslet,mPxLenslet]);
+                        = tools.rearrange([nPx,mPx],[nPxLenslet,mPxLenslet]);
                     v = ~obj.validLenslet(:);
                     v = repmat(v,nLensletArray,1);
                     obj.indexRasterLenslet(:,v) = [];
@@ -506,7 +506,7 @@ classdef shackHartmann < hgsetget
                 fprintf( '@(shackHartmann)> Setting the raster index \n')
                 % get lenslet index
                 obj.indexRasterLenslet ...
-                    = utilities.rearrange([nPx,mPx/nLensletArray,nLensletArray*nFrame],[nPxLenslet,mPxLenslet]);
+                    = tools.rearrange([nPx,mPx/nLensletArray,nLensletArray*nFrame],[nPxLenslet,mPxLenslet]);
                 % remove index from non-valid lenslets
                 v = ~obj.validLenslet(:);
                 v = repmat(v,nLensletArray,1);
@@ -667,12 +667,12 @@ classdef shackHartmann < hgsetget
                 fprintf('Matched filter algorithm\n')
                 if isempty(obj.matchedFilterR) % no offline matched filter
                     I0 = reshape(buffer(:, floor(length(obj.validLenslet)/2)+1), nPxLenslet, nPxLenslet);
-                    Gx = utilities.crop( (utilities.shift(I0, 1, 0) - I0) / 1, nPxLenslet);
-                    Gy = utilities.crop( (utilities.shift(I0, 0, 1) - I0) / 1, nPxLenslet);
-                    Ixp = utilities.shift(I0, 1, 0);
-                    Ixm = utilities.shift(I0,-1, 0);
-                    Iyp = utilities.shift(I0, 0, 1);
-                    Iym = utilities.shift(I0, 0,-1);
+                    Gx = tools.crop( (tools.shift(I0, 1, 0) - I0) / 1, nPxLenslet);
+                    Gy = tools.crop( (tools.shift(I0, 0, 1) - I0) / 1, nPxLenslet);
+                    Ixp = tools.shift(I0, 1, 0);
+                    Ixm = tools.shift(I0,-1, 0);
+                    Iyp = tools.shift(I0, 0, 1);
+                    Iym = tools.shift(I0, 0,-1);
                     H = [Gx(:) Gy(:) I0(:) Ixp(:) Ixm(:) Iyp(:) Iym(:)];
                     M = [...
                         1 0 0 1 -1 0  0
@@ -870,7 +870,7 @@ classdef shackHartmann < hgsetget
                 nLensletArray = obj.lenslets.nArray*nPicture;
                 
                 indexRasterLenslet_ ...
-                    = utilities.rearrange(size(picture),[nPxLenslet,mPxLenslet]);
+                    = tools.rearrange(size(picture),[nPxLenslet,mPxLenslet]);
                 v = ~obj.validLenslet(:);
                 v = repmat(v,nLensletArray,1);
                 indexRasterLenslet_(:,v) = [];
@@ -894,12 +894,12 @@ classdef shackHartmann < hgsetget
                 % L. Blanco 2017/01/02
                 %                 if ~isempty(obj.lenslets.elongatedFieldStopSize)
                 %                     nCrop = obj.lenslets.fieldStopSize * 2 * obj.lenslets.nyquistSampling;
-                %                     buffer = utilities.crop(buffer, nCrop);
+                %                     buffer = tools.crop(buffer, nCrop);
                 %                     nLenslet = size(buffer, 3);
                 %                     nRows = sqrt(nLenslet);
                 %                     croppedPicture = zeros(nCrop*nRows);
                 %                     %conflict with size of picture(indexRasterLenslet_)
-                %                     indexRasterLenslet_ = utilities.rearrange(size(croppedPicture),[nCrop,nCrop]);
+                %                     indexRasterLenslet_ = tools.rearrange(size(croppedPicture),[nCrop,nCrop]);
                 %                     v = ~obj.validLenslet(:);
                 %                     v = repmat(v,nLensletArray,1);
                 %                     indexRasterLenslet_(:,v) = [];
@@ -1694,7 +1694,15 @@ classdef shackHartmann < hgsetget
                 ps(2,2) = 1;
             else
                 ps = lgs(1).extent;
-                ps = utilities.crop(ps, 32);
+                %modif TFu - 2019/04/29
+                %%%%%%%%
+                nSubap = size(obj.validLenslet,1);
+                nPxSubap = tel.resolution/nSubap;
+                ps = tools.crop(ps, nPxSubap*binningFactor);
+                %%%%%%%%
+                % instead of ...
+                %ps = tools.crop(ps, 32);
+                %%%%%%%
                 %                 if mod(size(ps, 1),2) == 1
                 %                     ps = ps(2:end, 2:end); % even number of pixels in src.extent
                 %                 end
@@ -1703,16 +1711,23 @@ classdef shackHartmann < hgsetget
             %expand the kernel size to avoid circularization when shifting
             maxElong(isnan(maxElong)) = 0;
             nPxElong = size(ps, 1) + 2 * maxElong;
+                
             nPxElong = 4 * binningFactor * ceil(nPxElong / (4*binningFactor));
+            %nPxElong = binningFactor * ceil(nPxElong / (binningFactor));
+
+ 
             %             twos = 2.^linspace(1,10,10);
             %             nPxElong = twos(find( (abs(nPxElong-twos)) == min(abs(nPxElong-twos))));
-            ps = utilities.crop(ps, nPxElong);
+           
+            ps = tools.crop(ps, nPxElong); %modif ou pas je sais plus 
             
             %binning to match detector sampling
             %binningFactor = obj.lenslets.nLensletsImagePx ./ obj.camera.resolution(1);
+          
             nPxElong = nPxElong / binningFactor; % the spot kernels are generated using the WFS binning value (vs lenslet pixels)
-            
-            o = zeros([nPxElong nPxElong obj.lenslets.nLenslet^2]);
+           
+            %%%%%%%%
+           o = zeros([nPxElong nPxElong obj.lenslets.nLenslet^2]);
             % unbinnedO = zeros(length(ps));
             % fftO = zeros([nPxElong nPxElong obj.lenslets.nLenslet^2]);
             nLenslets = obj.lenslets.nLenslet^2;
@@ -1722,22 +1737,22 @@ classdef shackHartmann < hgsetget
                 unbinnedO = zeros(length(ps));
                 for iHeight = 1:length(lgsHeight)
                     if isempty(lgsExtent) % no lateral extensioon of the source
-                        %o(:,:,iLenslet) = o(:,:,iLenslet) + p(iHeight) .* utilities.shift(ps,sx(iLenslet,iHeight), sy(iLenslet,iHeight));
-                        defaultShift = 0;
-                        shiftedKernel = utilities.shift(ps,sx(iLenslet,iHeight)+defaultShift, sy(iLenslet,iHeight)+defaultShift);
+                        %o(:,:,iLenslet) = o(:,:,iLenslet) + p(iHeight) .* tools.shift(ps,sx(iLenslet,iHeight), sy(iLenslet,iHeight));
+                        defaultShift = 0.; %MODIF Thierry
+                        shiftedKernel = tools.shift(ps,sx(iLenslet,iHeight)+defaultShift, sy(iLenslet,iHeight)+defaultShift);
                         shiftedKernel = shiftedKernel .* (shiftedKernel>0);
-                        o(:,:,iLenslet) = o(:,:,iLenslet) + utilities.binning(p(iHeight) .* shiftedKernel, [nPxElong,nPxElong]);
+                        o(:,:,iLenslet) = o(:,:,iLenslet) + tools.binning(p(iHeight) .* shiftedKernel, [nPxElong,nPxElong]);
                     else % non-zero lateral extension of the source
-                        defaultShift = 0;
-                        shiftedKernel = utilities.shift(ps,sx(iLenslet,iHeight)+defaultShift, sy(iLenslet,iHeight)+ defaultShift);
+                        defaultShift = 0.;%MODIF Thierry
+                        shiftedKernel = tools.shift(ps,sx(iLenslet,iHeight)+defaultShift, sy(iLenslet,iHeight)+ defaultShift);
                         shiftedKernel = shiftedKernel .* (shiftedKernel>=0);
-                        %o(:,:,iLenslet) = o(:,:,iLenslet) + p(iHeight) .* utilities.shift(ps,sx(iLenslet,iHeight)-0.5, sy(iLenslet,iHeight)-0.5);
-                        %o(:,:,iLenslet) = o(:,:,iLenslet) + utilities.binning(p(iHeight) .* shiftedKernel, [nPxElong,nPxElong]);
+                        %o(:,:,iLenslet) = o(:,:,iLenslet) + p(iHeight) .* tools.shift(ps,sx(iLenslet,iHeight)-0.5, sy(iLenslet,iHeight)-0.5);
+                        %o(:,:,iLenslet) = o(:,:,iLenslet) + tools.binning(p(iHeight) .* shiftedKernel, [nPxElong,nPxElong]);
                         unbinnedO = unbinnedO + p(iHeight) .* shiftedKernel;
-                        % fftO(:,:,iLenslet) = fftO(:,:,iLenslet) + fftshift(fft2(utilities.binning(p(iHeight) .* shiftedKernel, [nPxElong,nPxElong]), nPxElong*2, nPxElong*2));
+                        % fftO(:,:,iLenslet) = fftO(:,:,iLenslet) + fftshift(fft2(tools.binning(p(iHeight) .* shiftedKernel, [nPxElong,nPxElong]), nPxElong*2, nPxElong*2));
                     end
                 end
-                o(:,:,iLenslet) = utilities.binning(unbinnedO, [nPxElong,nPxElong]);
+                o(:,:,iLenslet) = tools.binning(unbinnedO, [nPxElong,nPxElong]);
                 % fftO(:,:,iLenslet) = fftshift(fft2(o(:,:,iLenslet), nPxElong, nPxElong));
             end
             
@@ -2359,6 +2374,27 @@ classdef shackHartmann < hgsetget
             obj.log = logBook.checkIn(obj);
         end
         
+                %% get reconstruction grid - used in caes where a phase is reconstructed where the actuators are located, or a oversampling is applied
+        function val = reconstructionGrid(obj,os)
+            if nargin == 0
+                val = get.validActuator(obj);
+            elseif os ==2
+                nElements            = os*obj.lenslets.nLenslet+1; % Linear number of lenslet+actuator
+                validLensletActuator = zeros(nElements);
+                index                = 2:2:nElements; % Lenslet index
+                validLensletActuator(index,index) = obj.validLenslet;
+                for xLenslet = index
+                    for yLenslet = index
+                        if validLensletActuator(xLenslet,yLenslet)==1
+                            xActuatorIndice = ones(3,1)*(xLenslet-1:xLenslet+1);
+                            yActuatorIndice =ones(3,1)*(yLenslet-1:yLenslet+1) ;
+                            validLensletActuator(xActuatorIndice,yActuatorIndice) = 1;
+                        end
+                    end
+                end
+                val = logical(validLensletActuator);
+            end
+        end
     end
     
     methods (Access=private)

@@ -103,10 +103,11 @@ classdef spatialFilter < handle
         %% APPLYSPATIALFILTER propagates the electric field through the mask
         function applySpatialFilter(obj, src)
 
+            phase0 = src.phase;
+            
             % Computes original electric field in pupil plane
-
-            %srcPupilPlane  = padarray(src.amplitude .* exp(1i*src.phase), [obj.resolution/2,obj.resolution/2], 'both');
-            srcPupilPlane  = padarray(src.wave, [obj.resolution/2,obj.resolution/2], 'both');
+            srcPupilPlane  = padarray(src.amplitude .* exp(1i*mod(src.phase, 2*pi)), [obj.resolution/2,obj.resolution/2], 'both');
+%             srcPupilPlane  = padarray(src.wave, [obj.resolution/2,obj.resolution/2], 'both');
 
             % Computes electric field in focal plane
             srcFocalPlane  = fftshift(fft2(fftshift(srcPupilPlane)));
@@ -115,14 +116,15 @@ classdef spatialFilter < handle
             srcFocalPlaneF = srcFocalPlane .* padarray(obj.spatialFilterMask, [obj.resolution/2,obj.resolution/2],0,'both');
 
             % Computes  electric field in pupil plane after filtering
-            srcPupilPlaneF = fftshift(fft2(fftshift(srcFocalPlaneF)));
-            srcPupilPlaneF = srcPupilPlaneF(obj.resolution/2+1:3*obj.resolution/2, obj.resolution/2+1:3*obj.resolution/2);
+            pupil = logical(abs(src.wave));
+            srcPupilPlaneF = fftshift(ifft2(fftshift(srcFocalPlaneF)));
+            srcPupilPlaneF = pupil .* srcPupilPlaneF(obj.resolution/2+1:3*obj.resolution/2, obj.resolution/2+1:3*obj.resolution/2);
             
             % Computes final electric field in pupil plane
             src.amplitude  = abs(srcPupilPlaneF);
             %src.phase      = -1*src.phase;
             %src.phase      =  my_phase_unwrap_2D(angle(srcPupilPlaneF), src.amplitude, 400,400);
-            src.phase      =  angle(srcPupilPlaneF);
+            src.phase      =  angle(srcPupilPlaneF) - phase0; % Due to " src.phase = " operation, that adds the new phase to previous one
         end 
 
 

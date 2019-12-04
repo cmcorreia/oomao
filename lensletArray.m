@@ -31,7 +31,8 @@ classdef lensletArray < handle
         % extended using zero-padding, which is an approximation
         elongatedFieldStopSize = [];
         convKernel = false;
-        
+
+        % amount of focus on each lenslet to produce a defocused spot
         liftedShackHartmannFocus;
     end
     

@@ -21,7 +21,8 @@ classdef imager < detector
         % entrapped energy
         ee;
         % entrapped energy slit width in # pixels (conversion to physical
-        % units done by multiplying by the pixel scale)
+        % units done by multiplying by the pixel scale)  -
+        % ccorreia ~May2019
         eeWidth;
         % telescope diameter
         diameter
@@ -121,7 +122,7 @@ classdef imager < detector
                 otf = mat2cell(otf,size(otf,1),size(otf,2)/nSrc*ones(1,nSrc));
                 nFrame = obj.exposureTime*obj.clockRate;
                 
-               
+                
                 m_frame = obj.frame/nFrame;
                 m_frame = reshape(m_frame, size(m_frame,1), size(m_frame,2)*size(m_frame,3));
                 nf = [nSrc size(m_frame,2)/n2]; %nf = size(m_frame)/n;

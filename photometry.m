@@ -75,12 +75,6 @@ classdef photometry
         EOS ( 1.064e-6 , 0        , 3.3e12 )
         HK  ( (1.654e-6*1.1e12+2.179e-6*7.0e11)/(1.1e12+7.0e11) , 0.290e-6+00.410e-6 , 1.1e12+7.0e11 )
         
-        %Personal band for internal use (TFu 2019/06/21)
-        TFu_K (2.2e-6 , 0        , 1e12 )
-        TFu_H (1.6e-6 , 0        , 1e12 )
-        TFu_J (1.2e-6 , 0        , 1e12 )
-        TFu_Y (1.0e-6 , 0        , 1e12 )
-        TFu_I (0.8e-6 , 0        , 1e12 )
  end
     
 end

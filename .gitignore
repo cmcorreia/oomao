@@ -1,0 +1,10 @@
+.DS_Store
+mgray/
+mikhail/
+mlamb/
+tests.text
+*.mat
+*.fits
+/ccorreia/papers/*
+ccorreia/spatialFrequencyAO/pyramidCaseStudy/*.eps
+ccorreia/spatialFrequencyAO/pyramidCaseStudy/*.fig

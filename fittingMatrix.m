@@ -54,7 +54,7 @@ classdef fittingMatrix < handle
             nStar           = numel(obj.optStars);
             obj.optWeight   = p.Results.optWeight;
             if isempty(obj.optWeight)
-                obj.optWeight = 1/nStar*ones(nStar,1);
+                obj.optWeight = ones(nStar,1);
             end
             obj.resolution = p.Results.resolution;
             if isempty(obj.resolution)
@@ -129,7 +129,7 @@ classdef fittingMatrix < handle
                     Dx = (obj.layersNPixel(kDmLayer)-1)*pitchDmLayer;
                     sx = dmin-(Dx-(dmax-dmin))/2;
                     [x,y] = meshgrid(linspace(0,1,obj.layersNPixel(kDmLayer))*Dx+sx);
-                    Hdm{kGs,kDmLayer} = bilinearSplineInterp(...
+                    Hdm{kGs,kDmLayer} = p_bilinearSplineInterp(...
                         x,...
                         y,...
                         pitchDmLayer,...
@@ -138,21 +138,20 @@ classdef fittingMatrix < handle
                 end
                 intDM = [Hdm{kGs,:}];
                 intL  = [Hss{kGs,:}];
-                HdmMean    = HdmMean    + (intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
-                HdmAtmMean = HdmAtmMean +  (intDM*obj.dmInfFuncMatrix)'*intL;
-                %                 HdmMean    = HdmMean    + obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
-                %                 HdmAtmMean = HdmAtmMean +  obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*intL;
-                %PdmMean    = PdmMean    +  intDM'*intDM;
-                %PdmAtmMean = PdmAtmMean +  intDM'*intL;
+                %PdmMean    = HdmMean    + (intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
+                %PdmAtmMean = HdmAtmMean +  (intDM*obj.dmInfFuncMatrix)'*intL;
+                HdmMean    = HdmMean    + obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
+                HdmAtmMean = HdmAtmMean +  obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*intL;
+
             end
-            HdmMean    = HdmMean/nStar;
-            HdmAtmMean = HdmAtmMean/nStar;
+            HdmMean    = HdmMean/sum(obj.optWeight(:,1));
+            HdmAtmMean = HdmAtmMean/sum(obj.optWeight(:,1));
             %PdmMean    = PdmMean/nStar;
             %PdmAtmMean = PdmAtmMean/nStar;
             obj.Hss  = Hss;
             obj.Hdm  = Hdm;
             %obj.Hopt = pinv(full(PdmMean)+1e-3*eye(resTotal))*PdmAtmMean;
-            obj.commandMatrix = pinv(full(HdmMean),1)*HdmAtmMean;
+            obj.commandMatrix = pinv(full(HdmMean),1e-2)*HdmAtmMean;
             
             % local function
             function P = p_bilinearSplineInterp(xo,yo,do,xi,yi)

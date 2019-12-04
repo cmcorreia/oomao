@@ -1,4 +1,4 @@
-classdef fittingMatrix < handle
+classdef fittingMatrixNew < handle
     % fittingMatrix Create the fitting matrix for MCAO system from a
     % reconstructor MMSE and a dmStack (multiDM);
     properties
@@ -43,7 +43,8 @@ classdef fittingMatrix < handle
             addOptional(p,'modesLowRes', [], @(x) isnumeric(x) || ...
                 (isa(x,'influenceFunction') || isa(x,'gaussianInfluenceFunction') ...
                 || isa(x,'splineInfluenceFunction') || isa(x,'zernike') ...
-                || isa(x,'hexagonalPistonTipTilt')) || isa(x,'differentialGaussianInfluenceFunction'));
+                || isa(x,'hexagonalPistonTipTilt')) || isa(x,'differentialGaussianInfluenceFunction')...
+                || iscell(x));
             addParameter(p,'optWeight',[], @isnumeric);
             addParameter(p,'resolution',[], @isnumeric);
             parse(p,multiDm,mmse,optStars,modesLowRes,varargin{:});
@@ -74,16 +75,25 @@ classdef fittingMatrix < handle
             
             for kDmLayer = 1:nDmLayer
                 dm              = obj.multiDm.dms{kDmLayer};
-                actCoord        = dm.modes.actuatorCoord;
-                obj.D_m(kDmLayer) = max(real(actCoord(:)))-min(real(actCoord(:)));
                 do              = obj.mmse.dSub;
-                obj.layersNPixel(kDmLayer) = round(obj.D_m(kDmLayer)./do)+1;
-                if isempty(obj.modesLowRes(kDmLayer).modes) 
+                
+                if iscell(p.Results.modesLowRes)
+                    dmLowRes        = deformableMirror(dm.nActuator,'modes',obj.modesLowRes{kDmLayer},...
+                        'resolution',obj.layersNPixel(kDmLayer),...
+                        'validActuator',dm.validActuator);
+                    F = 2*dmLowRes.modes.modes;
+                elseif isempty(obj.modesLowRes(kDmLayer).modes)
+                    actCoord        = dm.modes.actuatorCoord;
+                    obj.D_m(kDmLayer) = max(real(actCoord(:)))-min(real(actCoord(:)));
+                    obj.layersNPixel(kDmLayer) = round(obj.D_m(kDmLayer)./do)+1;
                     dmLowRes        = deformableMirror(dm.nActuator,'modes',obj.modesLowRes(kDmLayer),...
                         'resolution',obj.layersNPixel(kDmLayer),...
                         'validActuator',dm.validActuator);
                     F = 2*dmLowRes.modes.modes;
                 else
+                    actCoord        = dm.modes.actuatorCoord;
+                    obj.D_m(kDmLayer) = max(real(actCoord(:)))-min(real(actCoord(:)));
+                    obj.layersNPixel(kDmLayer) = round(obj.D_m(kDmLayer)./do)+1;
                     F = obj.modesLowRes(kDmLayer).modes;
                 end
                 
@@ -101,57 +111,113 @@ classdef fittingMatrix < handle
             %PdmAtmMean = sparse(resTotal,length(mmse.Hss(1,:)));
             
             fprintf('___ BI-LINEAR INTERPOLATION OPERATOR ___\n')
-            for kGs=1:nStar
-                %Hss propagator
-                for kAtmLayer = 1:nAtmLayer
-                    pitchAtmLayer = obj.mmse.dSub/obj.mmse.overSampling(kAtmLayer);
-                    height        = obj.mmse.atmModel.layer(kAtmLayer).altitude;
-                    % pupil center in layer
-                    beta  = obj.optStars(kGs).directionVector*height;
-                    scale = 1-height/obj.optStars(kGs).height;
-                    Hss{kGs,kAtmLayer} = p_bilinearSplineInterp(...
-                        obj.mmse.atmGrid{kAtmLayer,1}(:),...
-                        obj.mmse.atmGrid{kAtmLayer,2}(:),...
-                        pitchAtmLayer,...
-                        real(obj.mmse.outputPhaseGrid)*scale+beta(1),...
-                        imag(obj.mmse.outputPhaseGrid)*scale+beta(2));
+            if iscell(p.Results.modesLowRes)
+                
+                for kGs=1:nStar
+                    %Hss propagator
+                    for kAtmLayer = 1:nAtmLayer
+                        pitchAtmLayer = obj.mmse.dSub/obj.mmse.overSampling(kAtmLayer);
+                        height        = obj.mmse.atmModel.layer(kAtmLayer).altitude;
+                        % pupil center in layer
+                        beta  = obj.optStars(kGs).directionVector*height;
+                        scale = 1-height/obj.optStars(kGs).height;
+                        Hss{kGs,kAtmLayer} = p_bilinearSplineInterp(...
+                            obj.mmse.atmGrid{kAtmLayer,1}(:),...
+                            obj.mmse.atmGrid{kAtmLayer,2}(:),...
+                            pitchAtmLayer,...
+                            real(obj.mmse.outputPhaseGrid)*scale+beta(1),...
+                            imag(obj.mmse.outputPhaseGrid)*scale+beta(2));
+                    end
+                    %Hdm propagator
+                    for kDmLayer = 1:nDmLayer
+                        pitchDmLayer = obj.mmse.dSub;
+                        height       = obj.multiDm.zLocations(kDmLayer);
+                        % pupil center in layer
+                        beta  = obj.optStars(kGs).directionVector*height;
+                        scale = 1-height/obj.optStars(kGs).height;
+                        actCoord = obj.multiDm.dms{kDmLayer}.modes.actuatorCoord;
+                        dmin = min(real(actCoord(:)));
+                        dmax = max(real(actCoord(:)));
+                        Dx = (obj.layersNPixel(kDmLayer)-1)*pitchDmLayer;
+                        sx = dmin-(Dx-(dmax-dmin))/2;
+                        [x,y] = meshgrid(linspace(0,1,obj.layersNPixel(kDmLayer))*Dx+sx);
+                        Hdm{kGs,kDmLayer} = bilinearSplineInterp(...
+                            x,...
+                            y,...
+                            pitchDmLayer,...
+                            real(obj.mmse.outputPhaseGrid)*scale+beta(1),...
+                            imag(obj.mmse.outputPhaseGrid)*scale+beta(2));
+                    end
+                    intDM = [Hdm{kGs,:}];
+                    intL  = [Hss{kGs,:}];
+                    %PdmMean    = HdmMean    + (intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
+                    %PdmAtmMean = HdmAtmMean +  (intDM*obj.dmInfFuncMatrix)'*intL;
+                    HdmMean    = HdmMean    + obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
+                    HdmAtmMean = HdmAtmMean +  obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*intL;
                 end
-                %Hdm propagator
-                for kDmLayer = 1:nDmLayer
-                    pitchDmLayer = obj.mmse.dSub;
-                    height       = obj.multiDm.zLocations(kDmLayer);
-                    % pupil center in layer
-                    beta  = obj.optStars(kGs).directionVector*height;
-                    scale = 1-height/obj.optStars(kGs).height;
-                    actCoord = obj.multiDm.dms{kDmLayer}.modes.actuatorCoord;
-                    dmin = min(real(actCoord(:)));
-                    dmax = max(real(actCoord(:)));
-                    Dx = (obj.layersNPixel(kDmLayer)-1)*pitchDmLayer;
-                    sx = dmin-(Dx-(dmax-dmin))/2;
-                    [x,y] = meshgrid(linspace(0,1,obj.layersNPixel(kDmLayer))*Dx+sx);
-                    Hdm{kGs,kDmLayer} = p_bilinearSplineInterp(...
-                        x,...
-                        y,...
-                        pitchDmLayer,...
-                        real(obj.mmse.outputPhaseGrid)*scale+beta(1),...
-                        imag(obj.mmse.outputPhaseGrid)*scale+beta(2));
+                HdmMean    = HdmMean/sum(obj.optWeight(:,1));
+                HdmAtmMean = HdmAtmMean/sum(obj.optWeight(:,1));
+                %PdmMean    = PdmMean/nStar;
+                %PdmAtmMean = PdmAtmMean/nStar;
+                obj.Hss  = Hss;
+                obj.Hdm  = Hdm;
+                %obj.Hopt = pinv(full(PdmMean)+1e-3*eye(resTotal))*PdmAtmMean;
+                obj.commandMatrix = pinv(full(HdmMean),1)*HdmAtmMean;
+            else
+                for kGs=1:nStar
+                    %Hss propagator
+                    for kAtmLayer = 1:nAtmLayer
+                        pitchAtmLayer = obj.mmse.dSub/obj.mmse.overSampling(kAtmLayer);
+                        height        = obj.mmse.atmModel.layer(kAtmLayer).altitude;
+                        % pupil center in layer
+                        beta  = obj.optStars(kGs).directionVector*height;
+                        scale = 1-height/obj.optStars(kGs).height;
+                        Hss{kGs,kAtmLayer} = p_bilinearSplineInterp(...
+                            obj.mmse.atmGrid{kAtmLayer,1}(:),...
+                            obj.mmse.atmGrid{kAtmLayer,2}(:),...
+                            pitchAtmLayer,...
+                            real(obj.mmse.outputPhaseGrid)*scale+beta(1),...
+                            imag(obj.mmse.outputPhaseGrid)*scale+beta(2));
+                    end
+                    %Hdm propagator
+                    for kDmLayer = 1:nDmLayer
+                        pitchDmLayer = obj.mmse.dSub;
+                        height       = obj.multiDm.zLocations(kDmLayer);
+                        % pupil center in layer
+                        beta  = obj.optStars(kGs).directionVector*height;
+                        scale = 1-height/obj.optStars(kGs).height;
+                        actCoord = obj.multiDm.dms{kDmLayer}.modes.actuatorCoord;
+                        dmin = min(real(actCoord(:)));
+                        dmax = max(real(actCoord(:)));
+                        Dx = (obj.layersNPixel(kDmLayer)-1)*pitchDmLayer;
+                        sx = dmin-(Dx-(dmax-dmin))/2;
+                        [x,y] = meshgrid(linspace(0,1,obj.layersNPixel(kDmLayer))*Dx+sx);
+                        Hdm{kGs,kDmLayer} = bilinearSplineInterp(...
+                            x,...
+                            y,...
+                            pitchDmLayer,...
+                            real(obj.mmse.outputPhaseGrid)*scale+beta(1),...
+                            imag(obj.mmse.outputPhaseGrid)*scale+beta(2));
+                    end
+                    intDM = [Hdm{kGs,:}];
+                    intL  = [Hss{kGs,:}];
+                    %PdmMean    = HdmMean    + (intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
+                    %PdmAtmMean = HdmAtmMean +  (intDM*obj.dmInfFuncMatrix)'*intL;
+                    HdmMean    = HdmMean    + obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
+                    HdmAtmMean = HdmAtmMean +  obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*intL;
+                    
                 end
-                intDM = [Hdm{kGs,:}];
-                intL  = [Hss{kGs,:}];
-                %PdmMean    = HdmMean    + (intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
-                %PdmAtmMean = HdmAtmMean +  (intDM*obj.dmInfFuncMatrix)'*intL;
-                HdmMean    = HdmMean    + obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*(intDM*obj.dmInfFuncMatrix);
-                HdmAtmMean = HdmAtmMean +  obj.optWeight(kGs,1)*(intDM*obj.dmInfFuncMatrix)'*intL;
-
+                HdmMean    = HdmMean/sum(obj.optWeight(:,1));
+                HdmAtmMean = HdmAtmMean/sum(obj.optWeight(:,1));
+                %PdmMean    = PdmMean/nStar;
+                %PdmAtmMean = PdmAtmMean/nStar;
+                obj.Hss  = Hss;
+                obj.Hdm  = Hdm;
+                %obj.Hopt = pinv(full(PdmMean)+1e-3*eye(resTotal))*PdmAtmMean;
+                obj.commandMatrix = pinv(full(HdmMean),1)*HdmAtmMean;
             end
-            HdmMean    = HdmMean/sum(obj.optWeight(:,1));
-            HdmAtmMean = HdmAtmMean/sum(obj.optWeight(:,1));
-            %PdmMean    = PdmMean/nStar;
-            %PdmAtmMean = PdmAtmMean/nStar;
-            obj.Hss  = Hss;
-            obj.Hdm  = Hdm;
-            %obj.Hopt = pinv(full(PdmMean)+1e-3*eye(resTotal))*PdmAtmMean;
-            obj.commandMatrix = pinv(full(HdmMean),1e-2)*HdmAtmMean;
+            
+
             
             % local function
             function P = p_bilinearSplineInterp(xo,yo,do,xi,yi)

@@ -822,10 +822,14 @@ classdef utilities
         function out = temporalSpectrum(nu,atm,spectrum)
             %% TEMPORALSPECTRUM Temporal power spectrum density
             %
-            % out = phaseStats.temporalSpectrum(nu,spectrum) computes the
+            % out = phaseStats.temporalSpectrum(nu,atm,spectrum) computes the
             % phase temporal power spectrum density from the spatial power
             % spectrum for a frozen flow atmosphere temporal model atm;
             % spectrum is a handle of an anonymous function fun(fr,fo,atm)
+            %
+            % if spectrum = @phaseStats.spectrum(), then the this function
+            % provides the same implementation found in
+            % phaseStats.temporalSpectrum()
             
             out = zeros(size(nu));
             for kLayer = 1:atm.nLayer

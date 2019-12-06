@@ -29,6 +29,8 @@ pixelSizeInMas = lo2DInMas*binFactor;
 fprintf('Pixel size is %4.0f mas\n' , pixelSizeInMas)
 fprintf('Pixel size is %4.2f lambda/D \n' , pixelSizeInMas/loDInMas)
 
+%alternative
+wfs.lenslets.pixelScale(ngs,tel)
 %% a random aberration
 zern = zernike(5:6,'resolution',120,'pupil',tel.pupil);
 zern.c = 20*(2*rand(zern.nMode,1)-1);

@@ -19,7 +19,33 @@ classdef zernikeStats
             out = phaseStats.spectrum(f,atm).*fourier(zern_i,f,o).*conj(fourier(zern_i,f,o));
             
         end
-                        %%
+        
+            %% multipleSpectra
+        function [out, outLayered] = multiZernikeTemporalSpectra(nu,atm,zern,tel,beta,T)
+            nMode = zern.nMode;
+            out = zeros(nMode, length(nu));
+            outLayered = zeros(nMode, length(nu),atm.nLayer);
+            if nargin < 5
+                beta = [];
+                T = [];
+            end
+            if tel.fieldOfView > 0
+                disp('ATTENTION: TELESCOPE FOV IS NOT NULL :: RESULTS CHANGE WITH ALTITUDE OF THE LAYER')
+            end
+            
+            if atm.nLayer > 1
+                parfor kmode=zern.j
+                    [out(kmode,:),outLayered(kmode,:,:)]  = zernikeStats.zernikeTemporalSpectrum(nu,atm,tel,kmode,beta,T);
+                end
+                out = out(zern.j,:); % keep only the requested modes
+                outLayered = outLayered(zern.j,:,:);
+            else
+                parfor kmode=zern.j
+                    [out(kmode,:)]  = zernikeStats.zernikeTemporalSpectrum(nu,atm,tel,kmode,beta, T);
+                end
+                out = out(zern.j,:); % keep only the requested modes
+            end
+        end
         function [out, outLayered] = zernikeTemporalSpectrum(nu,atm,tel,kmode,beta,T)
             %% zernikeTemporalSpectrummcomputes the Phase power spectrum density
             % two-sided instead of one-sided
@@ -29,7 +55,9 @@ classdef zernikeStats
             % function to avoid adding negative spectra values and therefore bias the computation
             % C. Correia May 2019
             %
-            
+            if tel.fieldOfView > 0
+                disp('ATTENTION: TELESCOPE FOV IS NOT NULL :: RESULTS CHANGE WITH ALTITUDE OF THE LAYER')
+            end
             outLayered = zeros(size(nu,2),atm.nLayer);
             for kLayer = 1:atm.nLayer
                 nPx = size(atm.layer(kLayer).phase,1);
@@ -40,12 +68,12 @@ classdef zernikeStats
                 
                 atmSlab = slab(atm,kLayer);
                 [vx,vy] = pol2cart(atmSlab.layer.windDirection,atmSlab.layer.windSpeed);
-                if nargin > 4 && ~isempty(beta)%boiling atmosphere
+                if nargin > 4 && ~isempty(beta)%boiling atmosphere - unfinished
                     for k=1:numel(nu)
                         outLayered(k,kLayer) = outLayered(k,kLayer) + integral2( @integrandFxFy , -Inf, Inf, -Inf, Inf);
                     end
                 else
-                        if abs(vx)>10*eps(atmSlab.layer.windSpeed)
+                        if abs(vx)>10*eps(atmSlab.layer.windSpeed) %10*eps is to enforce that the cases at 90deg and 270deg exactly will be computed correctly.
                             for k=1:numel(nu)
                             outLayered(k,kLayer) = outLayered(k,kLayer) + quadgk( @integrandFy , -Inf, Inf);
                             end
@@ -55,20 +83,9 @@ classdef zernikeStats
                             end
                         end
                 end
-                %                 if vx == 0;
-                %                     signvx = 1;
-                %                 else
-                %                     signvx = sign(vx);
-                %                 end
-                %                 if vy == 0;
-                %                     signvy = 1;
-                %                 else
-                %                     signvy = sign(vy);
-                %                 end
-                %                 out(:,kLayer) = out(:,kLayer)*signvx*signvy;
-                %%%%
-                % --- apply wind direction using Conan95, Eq. 30
+
             end
+            
             outLayered = 2*abs(outLayered); % x2 to consider two-sided instead of one-sided
             
             if atm.nLayer >1
@@ -80,7 +97,6 @@ classdef zernikeStats
             
             function int = integrandFy(fy)
                 fx = (nu(k) -fy*vy)/vx;
-                %fx = (nu(k))/vx;
                 int = zernikeStats.spectrum( hypot(fx,fy) , atan2(fy,fx), atmSlab , zern)/vx;
             end
             
@@ -104,6 +120,10 @@ classdef zernikeStats
             % temporal power spectrum density of the Zernike coefficients
             % from the temporal frequency nu, an atmosphere object and a
             % zernike object
+            %
+            % Superseded by zernikeTemporalSpectrum and its parent
+            % function multiZernikeTemporalSpectrum that allow for the
+            % computation of temporal spectra for multiple modes
             %
             % See also atmosphere and zernike
             

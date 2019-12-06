@@ -342,28 +342,7 @@ classdef lamTools %< eltTools
             a(j) = a(j) + 2*pi;
         end
         
-        %% multipleSpectra
-        function [out, outLayered] = multiZernikeTemporalSpectra(nu,atm,zern,tel,beta,T)
-            nMode = zern.nMode;
-            out = zeros(nMode, length(nu));
-            outLayered = zeros(nMode, length(nu),atm.nLayer);
-            if nargin < 5
-                beta = [];
-                T = [];
-            end
-            if atm.nLayer > 1
-                parfor kmode=zern.j
-                    [out(kmode,:),outLayered(kmode,:,:)]  = lamTools.zernikeTemporalSpectrum(nu,atm,tel,kmode,beta,T);
-                end
-                out = out(zern.j,:); % keep only the requested modes
-                outLayered = outLayered(zern.j,:,:);
-            else
-                parfor kmode=zern.j
-                    [out(kmode,:)]  = lamTools.zernikeTemporalSpectrum(nu,atm,tel,kmode,beta, T);
-                end
-                out = out(zern.j,:); % keep only the requested modes
-            end
-        end
+
 
         %% type I OMGI optimiser
         function g = omgi(nu, PSD, samplingFreq, pureDelay, noiseVar,verbose)

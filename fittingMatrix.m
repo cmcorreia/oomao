@@ -1,4 +1,4 @@
-classdef fittingMatrixNew < handle
+classdef fittingMatrix < handle
     % fittingMatrix Create the fitting matrix for MCAO system from a
     % reconstructor MMSE and a dmStack (multiDM);
     properties

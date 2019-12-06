@@ -277,11 +277,60 @@ classdef phaseStats
             %            out = ((alpha-1)/alpha)^2*phaseStats.spectrum(f, atm);
             
         end
-   
+         function out = AoASpectrum(f,o,atm,tel)
+              %% AOASPECTRUM Angle-of-Arrival temporal power spectrum density for a round aperture of diameter D (tel.D)
+             fx = f.*cos(o);
+             out = phaseStats.spectrum( f , atm ) .* abs(2*1i*pi*fx.*besselj(1,pi*tel.D*f)./(pi*tel.D*f)).^2;
+         end
+           function out = temporalAoASpectrum(nu,atm,tel,unit)
+            %% TEMPORALSPECTRUM Phase temporal power spectrum density
+            %
+            % out = phaseStats.temporalAoASpectrum(nu,atm) computes the
+            % angle-of-arrival single-axis temporal power spectrum density in rad^2 from the temporal
+            % frequency nu and an atmosphere object 
+            %
+            % See also atmosphere and zernike
+            
+            out = zeros(size(nu));
+            for kLayer = 1:atm.nLayer
+                atmSlab = slab(atm,kLayer);
+                [vx,vy] = pol2cart(atmSlab.layer.windDirection,atmSlab.layer.windSpeed);
+                for k=1:numel(nu)
+                    if abs(vx)>10*eps(atmSlab.layer.windSpeed)
+                        out(k) = out(k) + quadgk( @integrandFy , -Inf, Inf);
+                    else
+                        out(k) = out(k) + quadgk( @integrandFx , -Inf, Inf);
+                    end
+                end
+            end
+            out = out*4; % factor here accounts for double-sided spectrum for a single-axis
+            if nargin > 3
+                switch unit
+                    case 'rad'
+                    case 'am' %arcmin^2
+                        out = out*(180/pi*60*atm.wavelength/2/pi)^2;
+                    case 'as' %arcsec^2
+                        out = out*(180/pi*3600*atm.wavelength/2/pi)^2;
+                    case 'mas' %mas^2
+                        out = out*(180/pi*3600*1000*atm.wavelength/2/pi)^2;
+                    otherwise
+                end
+            end
+            function int = integrandFy(fy)
+                fx = (nu(k) -fy*vy)/vx;
+                int = 2*abs(phaseStats.AoASpectrum( hypot(fx,fy) ,atan2(fy,fx), atmSlab,tel )/vx);
+            end
+            
+            function int = integrandFx(fx)
+                fy = (nu(k) -fx*vx)/vy;
+                int = 2*abs(phaseStats.AoASpectrum( hypot(fx,fy) ,atan2(fy,fx), atmSlab,tel )/vy);
+            end
+           end   
+        
         function out = temporalSpectrum(nu,atm)
             %% TEMPORALSPECTRUM Phase temporal power spectrum density
             %
-            % out = phaseStats.temporalSpectrum(nu,atm,zern) computes the
+            % out = phaseStats.temporalSpectrum(nu,atm) computes the
             % phase temporal power spectrum density from the temporal
             % frequency nu, an atmosphere object and a zernike object
             %

@@ -290,6 +290,31 @@ classdef phaseStats
             % frequency nu and an atmosphere object 
             %
             % See also atmosphere and zernike
+            %
+            % EXAMPLE: Comparison of AoA to Z2. From numerical calculations, 
+            % the AoA variance (for a squared aperture) is 0.162 * (d/r0)^(5/3) 
+            % whereas the Z2 tilt variance is 0.172 * (d/r0)^(5/3) 
+            
+            %             tel = telescope(10,...
+            %                 'fieldOfViewInArcMin',0,...
+            %                 'resolution',60,...
+            %                 'samplingTime',1/250);
+            %
+            %             atm = atmosphere(photometry.V0,0.15,30,...
+            %                 'altitude',4e3,...
+            %                 'fractionnalR0',1,...
+            %                 'windSpeed',15,...
+            %                 'windDirection',0);
+            %
+            %             nu = logspace(-3,log10(1000),300);
+            %
+            %             AoA = phaseStats.temporalAoASpectrum(nu,atm,tel); % AoA in rad
+            %             fprintf('mas rms on-sky for a %d m telescope: %f mas rms\n',tel.D,sqrt(trapz(nu,AoA))*180/pi*3600*1000*atm.wavelength/2/pi)
+            %
+            %             zern = zernike(2:2,'resolution',tel.resolution,'pupil',tel.pupil,'D',tel.D);
+            %             [out, outLayered] = zernikeStats.multiZernikeTemporalSpectra(nu,atm,zern,tel);
+            %             rad2mas = 4/(tel.D)*180/pi*3600*1000*atm.wavelength/2/pi;
+            %             fprintf('mas rms on-sky for a %d m telescope: %f mas rms\n',tel.D,sqrt(trapz(nu,out))*rad2mas)
             
             out = zeros(size(nu));
             for kLayer = 1:atm.nLayer

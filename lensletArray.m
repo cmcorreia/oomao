@@ -196,6 +196,8 @@ classdef lensletArray < handle
             end
             nOutWavePx = max(nOutWavePx,obj.nLensletWavePx);
             out = skyAngle( (src.wavelength/tel.D)*obj.nLensletWavePx*obj.nLenslet/nOutWavePx);
+            % show also in mas 
+            out.unit = 'mas';
         end
 
         function wavePrgted = propagateThrough(obj,src_in)

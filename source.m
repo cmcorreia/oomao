@@ -354,7 +354,25 @@ classdef source < stochasticWave & hgsetget
         %                 bool = true;
         %             end
         %         end
-        
+
+        %% Set the extent
+        function out = setExtent(obj,thetaSpotInMas,tel,wfs)
+            % generate a Gaussian spot for a given wfs, given the spot size
+            % in mas and the telescope onto which the source will be
+            % propagated
+            nLenslet = wfs.lenslets.nLenslet;
+            d = tel.D/nLenslet;
+            nPixSubap = wfs.camera.resolution(1)/nLenslet;
+            
+            binFactor = max(1,2*wfs.lenslets.fieldStopSize/wfs.lenslets.nyquistSampling/nPixSubap);
+            lo2DInMas = obj.wavelength/(2*d)*constants.radian2mas;
+            
+            pixelSize = lo2DInMas*binFactor;
+            plateScale = round(pixelSize + nPixSubap-rem(pixelSize,nPixSubap));
+            
+            out = utilities.gaussianC(tel.resolution, tel.resolution * thetaSpotInMas/plateScale/nPixSubap/nLenslet); 
+        end
+        %%
         function display(obj)
             %% DISP Display object information
             %
@@ -844,6 +862,9 @@ classdef source < stochasticWave & hgsetget
             rhoSrcLayer = hypot(xSrc,ySrc)*cougarConstants.radian2arcsec;
             thetaSrcLayer = atan2(ySrc,xSrc)*180/pi;
         end
+        
+
+        
     end
     
 end

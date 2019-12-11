@@ -880,6 +880,7 @@ classdef shackHartmann < hgsetget
                 %                 tic
                 %                 if isempty(obj.spotsLgsSrcKernel)
                 srcExtent = src(1).extent;
+
                 parfor kLenslet=1:size(buffer,3)
                     buffer(:,:,kLenslet) = conv2(buffer(:,:,kLenslet),srcExtent,'same');
                 end

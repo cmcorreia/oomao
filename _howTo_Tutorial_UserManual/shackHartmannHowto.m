@@ -1,6 +1,40 @@
 %% SHACKHARTMANN HOWTO 
 % Demonstrate the use of the <matlab:doc('shackHartmann') shackHartmann> class
 
+%{
+The detector pixel size can be adjusted considering the following
+- The FoV of a sub-aperture is at most 2*nPixElecField*lo2D, where
+    - nPixElecField = number of pixels per sub-aperture used to sample the
+    electric field. This is tel/resolution/wfs.nLenslet
+    - lo2D is half the diffraction limit of the sub-aperture
+- the wfs.lenslets.fieldStopSize the lenslet field of view given in diffraction fwhm units
+- wfs.lenslets.nyquistSampling gives the 2x number of pixels per lo2D
+-wfs.camera.resolution bins the electric field pixels to a smaller number
+
+Example 1: Detector with 8 50mas pixels in K band
+    tel.D = 11.25;
+    ngs.wavelength = photometry.Ks;
+    lo2DInMas =
+    ngs.wavelength/(tel.D/wfs.lenslets.nLenslet)*constants.radian2mas; %40mas
+    wfs.lenslets.nyquistSampling = 2;% i.e. 4 pixels per loD -> 10mas/pixel
+    wfs.lenslets.fieldStopSize = 10; % i.e there are 10*4=40 pixels in the output wave
+    wfs.camera.resolution = [1 1]*8; % i.e. from 40 to 8 a factor 5 binning
+    is obtained from 10mas pixels -> 50 mas pixels as desired
+
+- wfs.lenslets.nyquistSampling: controls the angular size of the
+electric-field pixel
+- wfs.camera.resolution: controls the binning of the detector camera pixels
+- wfs.lenslets.fieldStopSize: controls the field bounds passed to the
+detector
+
+            lo2DInMas = ngs.wavelength/(2*d)*constants.radian2mas;
+            binFactor = 2*obj.lenslets.fieldStopSize*obj.lenslets.nyquistSampling/nPxDetector;
+            detectorPixelSizeInMas = lo2DInMas/obj.lenslets.nyquistSampling*binFactor;
+
+
+
+%}
+%%
 ngs = source;
 tel = telescope(8,'resolution',120);
 

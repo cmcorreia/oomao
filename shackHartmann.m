@@ -244,7 +244,17 @@ classdef shackHartmann < hgsetget
                 checkOut(obj.log,obj);
             end
         end
-        
+        function pixelScales(obj,ngs,tel)
+            %% PIXELSCALES Display the lenslet and detector pixel scales in mas on-sky 
+            d   = tel.D/size(obj.validLenslet,1);
+                ps = obj.lenslets.pixelScale(ngs,tel);
+                fprintf('The current lenslet pixel-scale is %4.2f mas\n',ps.convert('mas')) % sampling of the electic field
+                nPxDetector = size(obj.camera.frame,1)/obj.lenslets.nLenslet;
+                binFactor = 2*obj.lenslets.fieldStopSize*obj.lenslets.nyquistSampling/nPxDetector;
+                lo2DInMas = ngs.wavelength/(2*d)*constants.radian2mas;
+                detectorPixelSizeInMas = lo2DInMas/obj.lenslets.nyquistSampling*binFactor;
+                fprintf('The current detector pixel-scale is %4.2f mas\n',detectorPixelSizeInMas); % sky-angle of the detector pixels after binning
+        end
         function display(obj,ngs,tel)
             %% DISPLAY Display object informations
             %
@@ -258,12 +268,7 @@ classdef shackHartmann < hgsetget
             fprintf(' Shack-Hartmann wavefront sensor: \n  . %d lenslets total on the pupil\n  . %d pixels per lenslet \n',...
                 obj.nValidLenslet,obj.camera.resolution(1)/obj.lenslets.nLenslet)
             if nargin > 2
-                d   = tel.D/size(obj.validLenslet,1);
-                ps = obj.lenslets.pixelScale(ngs,tel);
-                fprintf('   . The current lenslet pixel-scale is %4.2f mas\n',ps.convert('mas')) % sampling of the electic field
-                binFactor = 2*obj.lenslets.fieldStopSize/obj.lenslets.nyquistSampling/(obj.camera.resolution(1)/obj.lenslets.nLenslet);
-                lo2DInMas = ngs.wavelength/(2*d)*constants.radian2mas;
-                fprintf('   . The current detector pixel-scale is %4.2f mas\n',lo2DInMas*binFactor); % sky-angle of the detector pixels after binning
+                obj.pixelScales(ngs,tel)                
             end
             
             if isinf(obj.framePixelThreshold)
@@ -2234,18 +2239,18 @@ classdef shackHartmann < hgsetget
             obj.slopesUnits = 1;
             
             
-            nPx = obj.camera.resolution(1)/obj.lenslets.nLenslet;
+            nPx = size(obj.camera.frame,1)/obj.lenslets.nLenslet;
             d   = tel.D/size(obj.validLenslet,1);
                         ngs = ngs.*tel*obj;
             obj.pointingDirection = zeros(2,1);
             
             ps = obj.lenslets.pixelScale(ngs,tel);
             fprintf('The current lenslet pixel-scale is %f mas\n',ps.convert('mas')) % sampling of the electic field
-            binFactor = 2*obj.lenslets.fieldStopSize/obj.lenslets.nyquistSampling/nPx;
+            %binFactor = 2*obj.lenslets.fieldStopSize/obj.lenslets.nyquistSampling/nPx;
+            binFactor = 2*obj.lenslets.fieldStopSize*obj.lenslets.nyquistSampling/nPx;
             lo2DInMas = ngs.wavelength/(2*d)*constants.radian2mas;
             lo2D = ngs.wavelength/(2*d);
-            detectorPixelSizeInMas = lo2DInMas*binFactor;
-            detectorPixelSize = lo2D*binFactor;
+            detectorPixelSizeInMas = lo2DInMas/obj.lenslets.nyquistSampling*binFactor;
             fprintf('The current detector pixel-scale is %f mas\n',detectorPixelSizeInMas); % sky-angle of the detector pixels after binning
             
             

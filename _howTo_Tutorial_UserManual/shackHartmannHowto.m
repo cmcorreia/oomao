@@ -15,7 +15,7 @@ Example 1: Detector with 8 50mas pixels in K band
     tel.D = 11.25;
     ngs.wavelength = photometry.Ks;
     lo2DInMas =
-    ngs.wavelength/(tel.D/wfs.lenslets.nLenslet)*constants.radian2mas; %40mas
+    ngs.wavelength/(tel.D/wfs.lenslets.nLenslet)*constants.radian2mas; %40mas (1 sub-aperture assumed)
     wfs.lenslets.nyquistSampling = 2;% i.e. 4 pixels per loD -> 10mas/pixel
     wfs.lenslets.fieldStopSize = 10; % i.e there are 10*4=40 pixels in the output wave
     wfs.camera.resolution = [1 1]*8; % i.e. from 40 to 8 a factor 5 binning

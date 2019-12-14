@@ -32,8 +32,8 @@ classdef lensletArray < handle
         elongatedFieldStopSize = [];
         convKernel = false;
 
-        % amount of focus on each lenslet to produce a defocused spot
-        liftedShackHartmannFocus;
+        % amount of opticalAberration on each lenslet to produce an aberrated spot
+        liftedShackHartmannOpticalAberration;
     end
     
     properties (SetObservable=true)
@@ -265,8 +265,8 @@ classdef lensletArray < handle
             end
             nLensletArray = nLensletsWavePxNGuideStar/nLensletsWavePx;
             
-            if ~isempty(obj.liftedShackHartmannFocus)
-                val = obj.liftedShackHartmannFocus.*val;
+            if ~isempty(obj.liftedShackHartmannOpticalAberration)
+                val = obj.liftedShackHartmannOpticalAberration.*val;
             end
 %             obj.nArray = nLensletArray;
             % Invocation of the zoom optics for conjugation to finite

@@ -741,10 +741,10 @@ classdef slopesLinearMMSE < handle
                 Cnn = speye(size(exCxx,1))*obj.noiseVar;
             elseif isvector(obj.noiseVar)
                 Cnn = diag(obj.noiseVar(obj.slopesMask(:)));
-            else
+            else % is a matrix
                 Cnn = obj.noiseVar;
+                Cnn = Cnn(obj.slopesMask(:), obj.slopesMask(:));
             end
-            
             R = exCox*pinv(exCxx+Cnn);
             R = R*obj.wavefrontToMeter;
         end

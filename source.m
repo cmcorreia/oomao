@@ -370,7 +370,11 @@ classdef source < stochasticWave & hgsetget
             pixelSize = lo2DInMas*binFactor;
             plateScale = round(pixelSize + nPixSubap-rem(pixelSize,nPixSubap));
             
-            out = utilities.gaussianC(tel.resolution, tel.resolution * thetaSpotInMas/plateScale/nPixSubap/nLenslet); 
+            %out = utilities.gaussianC(tel.resolution, tel.resolution * thetaSpotInMas/plateScale/nPixSubap/nLenslet);
+            numericalPixelSizeInMas = obj.wavelength/(2*d*wfs.lenslets.nyquistSampling)*constants.radian2mas;
+            out = utilities.gaussianC(wfs.lenslets.fieldStopSize*2*wfs.lenslets.nyquistSampling, ...
+                thetaSpotInMas/numericalPixelSizeInMas); 
+
         end
         %%
         function display(obj)

@@ -210,8 +210,8 @@ classdef gaussianInfluenceFunction < handle
                     xIF = linspace(-1,1,nIF)*(nIF-1)/2*obj.pitch - offset(1);
                     yIF = linspace(-1,1,nIF)*(nIF-1)/2*obj.pitch - offset(2);
                     [xIF2,yIF2] = ndgrid(xIF,yIF);
-                    obj.actuatorCoord = yIF2 + 1i*flip(xIF2);
-                    
+                    %obj.actuatorCoord = yIF2 + 1i*flip(xIF2);
+                    obj.actuatorCoord = xIF2' + 1i*flipud(yIF2');
                     %u0 = ratioTelDm.*linspace(-1,1,resolution)*(nIF-1)/2*(resolution-1)/resolution*obj.pitch;
                     u0 = ratioTelDm.*linspace(-1,1,resolution)*(nIF-1)/2*obj.pitch; % scaled by telescope diamter
                 else

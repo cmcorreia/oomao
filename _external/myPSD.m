@@ -28,14 +28,15 @@ if size(y,2) > size(y,1);
 end
 y = y - mean(y);                       %the sequence must be zero-mean
 
+
 L = length(y);
 NFFT = L;%2^nextpow2(L); % Next power of 2 from length of y
 Y = fft(y,NFFT)/L;
-f = Fs/2*linspace(0,1,NFFT/2+1);
+f = Fs/2*linspace(2/length(y),1,NFFT/2+1)'; % freq vector goes from 1/duration : 1/2/Ts, where 'duration' is the total duration of the time series 
 df = gradient(f);
 
 Y = Y.*conj(Y);
-Y = 2*abs(Y(1:NFFT/2+1))./df'*L/NFFT;
+Y = 2*abs(Y(1:NFFT/2+1))./df*L/NFFT;
 
 % Plot single-sided amplitude spectrum.
 if doplot

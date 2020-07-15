@@ -33,7 +33,7 @@ classdef lensletArray < handle
         convKernel = false;
 
         % amount of opticalAberration on each lenslet to produce an aberrated spot
-        liftedShackHartmannOpticalAberration;
+        opticalAberration;
     end
     
     properties (SetObservable=true)
@@ -265,8 +265,8 @@ classdef lensletArray < handle
             end
             nLensletArray = nLensletsWavePxNGuideStar/nLensletsWavePx;
             
-            if ~isempty(obj.liftedShackHartmannOpticalAberration)
-                val = obj.liftedShackHartmannOpticalAberration.*val;
+            if ~isempty(obj.opticalAberration)
+                val = obj.opticalAberration.*val;
             end
 %             obj.nArray = nLensletArray;
             % Invocation of the zoom optics for conjugation to finite

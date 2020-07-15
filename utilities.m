@@ -747,14 +747,20 @@ classdef utilities
             m_B = sparse(rows,cols,values,Ni^2,N^2);
         end
         
-        function fr = gaussianC(resolution,fwhm)
+        function fr = gaussianC(resolution,fwhm,offset)
             % delivers a gaussian 2D, centered between 4 pixels (similar to
             % gaussian)
-            
+            if nargin > 2
+                if length(offset) == 1
+                    offset(2) = offset(1);
+                end
+            else
+                offset = [0 0];
+            end
             
             u = (0:resolution-1)-(resolution)/2 + 0.5;
             [x,y] = meshgrid(u);
-            r = hypot(x,y);
+            r = hypot(x-offset(1),y-offset(2));
             sig = fwhm./(2.*sqrt(2*log(2)));
             f = exp(-r.^2/(2*sig.^2));
             fr = f/sum(f(:));
@@ -1419,12 +1425,31 @@ classdef utilities
                 'windSpeed',[atm.layer.windSpeed],'windDirection',...
                 [atm.layer.windDirection]);
         end
-
-                function [zenith,azimuth] = arcsec2polar(x,y)
+%%
+       function [zenith,azimuth] = arcsec2polar(x,y)
             [TH, RHO] = cart2pol(x,y);
             zenith    = RHO(:)*constants.arcsec2radian;
             azimuth   = TH(:);
-        end
+       end
+            %%
+%         function out = subImage(image,nPxOut,c)
+%             % select a sub-image with nPxPut pixels centred in c
+%             if nargin  <3
+%                 [cx,cy] = size(image);
+%                 cx = floor(cx)/2+1;
+%                 cy = floor(cy)/2+1;
+%             elseif length(c) == 1
+%                 cx = c(1);
+%                 cy = c(1);
+%             else
+%                 cx = c(1);
+%                 cy = c(2);
+%             end
+%             idx = floor(cx-nPxOut/2)+1:floor(cx+nPxOut/2);
+%             idy = floor(cy-nPxOut/2)+1:floor(cy+nPxOut/2);
+%             out     = image(idx,idy);
+%         end
+       
     end
     
 end

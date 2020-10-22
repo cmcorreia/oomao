@@ -2,9 +2,9 @@ classdef control < handle
     
     % CONTROL Create a temporal controller object
     %
-    % int = control('typeI',2,'controlMatrix',calibDm.M,'gainInt',0.5); creates a 
+    % int = control('typeI',2,'controlMatrix',calibDm.M,'gainInt',0.5); creates a
     % single integrator ("typeI") with 2 steps delay and gain 0.5 implementing the recursion:
-    % int.u = int.u - int.gainInt*controlMatrix*int.data; The object is called in a loop as follows: 
+    % int.u = int.u - int.gainInt*controlMatrix*int.data; The object is called in a loop as follows:
     % int.data = wfs.slopes;
     % dm.coefs(:,1) = int.u;
     %
@@ -25,6 +25,7 @@ classdef control < handle
         fittingMatrix;
         u;
         samplingTime;
+        partialDelayCoefs = [0 0 1];
         % commands listener
         commandsListener;
         %dataListener
@@ -71,7 +72,7 @@ classdef control < handle
             parse(p,type,nDelay,varargin{:})
             
             obj.type                = p.Results.type;
-            obj.nDelay              = p.Results.nDelay-1;
+            obj.nDelay              = p.Results.nDelay;
             obj.gainInt             = p.Results.gainInt;
             obj.gainPolc            = p.Results.gainPolc;
             obj.parmsDoubleInt      = p.Results.parmsDoubleInt;
@@ -89,12 +90,13 @@ classdef control < handle
             
             obj.log = logBook.checkIn(obj);
             
+            
             if ~isempty(obj.controlMatrix)
                 obj.p_u = zeros(size(obj.controlMatrix,1),1) + obj.p_uInit;
-                obj.buffer = zeros(size(obj.controlMatrix,1), obj.nDelay+1);
+                obj.buffer = zeros(size(obj.controlMatrix,1), 3);
             elseif ~isempty(obj.interactionMatrix)
                 obj.p_u = zeros(size(obj.interactionMatrix,2),1);
-                obj.buffer = zeros(size(obj.interactionMatrix,2), obj.nDelay+1);
+                obj.buffer = zeros(size(obj.interactionMatrix,2), 3);
             end
             if isempty(obj.fittingMatrix)
                 obj.fittingMatrix = eye(size(obj.controlMatrix,1));
@@ -129,7 +131,8 @@ classdef control < handle
         %% SETS AND GETS
         %% Get u
         function out = get.u(obj)
-            out = obj.buffer(:,1);
+            out = dmCommandOverWfsExposure(obj);
+            %out = obj.p_u;%obj.buffer(:,1);
         end
         %% set and get uInit
         function out = get.uInit(obj)
@@ -140,25 +143,52 @@ classdef control < handle
             obj.p_u = val;
             obj.buffer = repmat(obj.p_u,1,obj.nDelay+1);
         end
+        %% SET PARTIAL DELAY COEFFICIENTS
+        function set.nDelay(obj, val)
+            obj.nDelay = val;
+            if mod(obj.nDelay,1) % i.e. is a non-integer
+                if 1 < obj.nDelay < 2
+                    b = obj.nDelay-1;
+                    a = 1-b;
+                    c = 0;
+                elseif 2 < obj.nDelay < 3
+                    a = 0;
+                    c = obj.nDelay-2;
+                    b = 1-c;
+                end
+                obj.partialDelayCoefs = [c, b, a];
+            elseif obj.nDelay == 1
+                obj.partialDelayCoefs = [0, 0, 1];
+            elseif obj.nDelay == 2
+                obj.partialDelayCoefs = [0, 1, 0];
+            elseif obj.nDelay == 3
+                obj.partialDelayCoefs = [1, 0, 0];
+            end
+        end
         %%
         function updateController(obj)
             obj = obj*obj.data;
             iterate(obj);
             fifo(obj);
         end
-        
-        function obj = mtimes(obj,data)
+        %%
+        function obj = mtimes(obj,wfs)
             % * Matrix multilplication
+            if isa(wfs,'shackHartmann')
+                obj.data = wfs.slopes(:);
+            else
+                obj.data = wfs(:);
+            end
             switch obj.type
                 case 'typeI'
-                    obj.p_uk = obj.controlMatrix*data;
+                    obj.p_uk = obj.controlMatrix*obj.data;
                 case 'typeII'
-                    obj.p_uk = obj.controlMatrix*data;
+                    obj.p_uk = obj.controlMatrix*obj.data;
                 case 'polc'
-                    obj.p_uk = obj.reconstructor * ( bsxfun( @minus, data, obj.interactionMatrix*obj.p_u ) );
+                    obj.p_uk = obj.reconstructor * ( bsxfun( @minus, obj.data, obj.interactionMatrix*obj.p_u ) );
             end
         end
-        
+        %%
         function iterate(obj)
             switch obj.type
                 case 'typeI'
@@ -175,6 +205,8 @@ classdef control < handle
             end
         end
         
+        
+        %% FIFO with internal buffer of demands
         function fifo(obj)
             if size(obj.buffer,2) > 1
                 obj.buffer = [obj.buffer(:,2:end) obj.p_u];
@@ -188,6 +220,29 @@ classdef control < handle
         end
         
         
+        %% computation of the linear combination of DM commands seen over the WFS exposure
+        function out = dmCommandOverWfsExposure(obj)
+            % In this case the loop is simulated with a fractional delay. In the
+            % previous example, the AO has a fixed 1-frame delay, which corresponds to
+            % a null RTC latency, since if we consider the discrete samples
+            % representing the mid-points in the exposure, the commands are computed
+            % and applied directly at the end of the WFS exposure, such that at iteration k the measurement
+            %
+            % s_k =  phi_k - u_k-1
+            %
+            % The general case is with a delay greater than one, in which case
+            %
+            % s_k =  phi_k - a*u_k-1 - b*u_k-2 - c*u_k-3
+            %
+            % with
+            % b = delay-1;      a = 1-b;        c = 0;      if 1 < delay < 2
+            % a = 0;            c = delay-2;    b = 1-c;    if 2 < delay < 3
+            
+            
+            out = sum(obj.buffer.*obj.partialDelayCoefs,2);
+    
+        
+        end
     end
     
 end

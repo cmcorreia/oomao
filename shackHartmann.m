@@ -92,6 +92,8 @@ classdef shackHartmann < hgsetget
         rotatedFrame = false;
         % rotation angles (subaperture dependant)
         theta = 0;
+        % pre-processed frame (useful for further processing outside of SH)
+        preprocessedFrame;
     end
     
     properties (SetAccess=private)
@@ -120,7 +122,7 @@ classdef shackHartmann < hgsetget
         % intensity in each lenslet
         lensletIntensity;
         % valid actuatord
-        validActuator;
+        validActuator = [];
         % zernike coefficients
         zernCoefs;
         % X slopes map
@@ -331,6 +333,7 @@ classdef shackHartmann < hgsetget
         function validLenslet = get.validLenslet(obj)
             validLenslet = obj.p_validLenslet;
         end
+        % user-defined validLenslst array
         function set.validLenslet(obj,val)
             obj.p_validLenslet = logical(val);
             index = ~[obj.p_validLenslet(:);obj.p_validLenslet(:)];
@@ -362,26 +365,33 @@ classdef shackHartmann < hgsetget
             out = zeros(obj.lenslets.nLenslet);
             out(obj.validLenslet) = obj.slopes(1+end/2:end);
         end
-        
+        %% Get valid actuators
+        function set.validActuator(obj,val)
+            obj.validActuator = val;
+        end
         %% Get valid actuators
         function val = get.validActuator(obj)
-            nElements            = 2*obj.lenslets.nLenslet+1; % Linear number of lenslet+actuator
-            validLensletActuator = zeros(nElements);
-            index                = 2:2:nElements; % Lenslet index
-            validLensletActuator(index,index) = obj.validLenslet;
-            for xLenslet = index
-                for yLenslet = index
-                    if validLensletActuator(xLenslet,yLenslet)==1
-                        xActuatorIndice = [xLenslet-1,xLenslet-1,...
-                            xLenslet+1,xLenslet+1];
-                        yActuatorIndice = [yLenslet-1,yLenslet+1,...
-                            yLenslet+1,yLenslet-1];
-                        validLensletActuator(xActuatorIndice,yActuatorIndice) = 1;
+        %    if ~isempty(obj.validActuator)
+                nElements            = 2*obj.lenslets.nLenslet+1; % Linear number of lenslet+actuator
+                validLensletActuator = zeros(nElements);
+                index                = 2:2:nElements; % Lenslet index
+                validLensletActuator(index,index) = obj.validLenslet;
+                for xLenslet = index
+                    for yLenslet = index
+                        if validLensletActuator(xLenslet,yLenslet)==1
+                            xActuatorIndice = [xLenslet-1,xLenslet-1,...
+                                xLenslet+1,xLenslet+1];
+                            yActuatorIndice = [yLenslet-1,yLenslet+1,...
+                                yLenslet+1,yLenslet-1];
+                            validLensletActuator(xActuatorIndice,yActuatorIndice) = 1;
+                        end
                     end
                 end
-            end
-            index = 1:2:nElements; % Actuator index
-            val   = logical(validLensletActuator(index,index));
+                index = 1:2:nElements; % Actuator index
+                val   = logical(validLensletActuator(index,index));
+           % else
+           %     val = obj.validActuator;
+           % end
         end
         
         %% Get/Set the reference spots and update spots location display if
@@ -755,6 +765,9 @@ classdef shackHartmann < hgsetget
             if nargout>0
                 varargout{1} = obj.slopes;
             end
+            % save the buffer
+            obj.preprocessedFrame = buffer;
+            
         end
         
         function zern = getZernike(obj,radialOrder)
@@ -781,6 +794,7 @@ classdef shackHartmann < hgsetget
             if nargout>0
                 varargout{1} = obj.slopes;
             end
+            
         end
         function varargout = uplus(obj)
             %% UPLUS + Update operator
@@ -1122,7 +1136,7 @@ classdef shackHartmann < hgsetget
             %scatter(real(pos22), imag(pos22),'k')
             fill(real([pos11 pos12 pos21  pos22])', imag([pos11 pos12 pos22 pos21])','r','FaceColor','none')
             if nargin == 3
-                scatter(real(dm.modes.actuatorCoord(dm.validActuator)), imag(dm.modes.actuatorCoord(dm.validActuator)))
+                scatter(real(dm.modes.actuatorCoord(dm.validActuator)), imag(dm.modes.actuatorCoord(dm.validActuator)),'MarkerFaceColor','r')
             end
             axis square
             title('geometric xLocs and yLocs')
@@ -2380,11 +2394,11 @@ classdef shackHartmann < hgsetget
             obj.log = logBook.checkIn(obj);
         end
         
-                %% get reconstruction grid - used in caes where a phase is reconstructed where the actuators are located, or a oversampling is applied
-                function val = reconstructionGrid(obj,os)
-                % os stands for overSampling. Can be 1 or 2. 
-                % If os=1, reconstructionGrid pitch = subaperturePitch, 
-                % if os=2, reconstructionGrid pitch = subaperturePitch/2
+        %% get reconstruction grid - used in caes where a phase is reconstructed where the actuators are located, or a oversampling is applied
+        function val = reconstructionGrid(obj,os)
+            % os stands for overSampling. Can be 1 or 2.
+            % If os=1, reconstructionGrid pitch = subaperturePitch,
+            % if os=2, reconstructionGrid pitch = subaperturePitch/2
             if nargin == 0
                 val = get.validActuator(obj);
             elseif os ==2

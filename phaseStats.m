@@ -219,6 +219,15 @@ classdef phaseStats
             S = phaseStats.spectrum(f,atm).*Y;
         end
         
+        function [O, S] = fresnelChromaticity(f, atm, wvl1, wvl2)
+            % OPD and AMP power-spectral densities caused by Fresnel
+            % chromaticity
+            [o,a] = phaseStats.chromaticity(f, atm, wvl1, wvl2);
+            [X, Y] = phaseStats.fresnel(f,atm);
+            O = o./X.*phaseStats.spectrum(f,atm);
+            S = a./Y.*phaseStats.ampSpectrum(f,atm);
+        end
+        
         function [O,S] = fresnel(f, atm)
             %% Fresnel phase and amplitude factors when propagating through a stratified turbulence
             O = zeros(size(f));
@@ -256,7 +265,7 @@ classdef phaseStats
             S = (2-A-conj(A)).*phaseStats.ampSpectrum(f, atm);
         end
         
-        function [O, S] = correctionChromatism(f, atm, wvl1, wvl2)
+        function [O, S] = differentialRefraction(f, atm, wvl1, wvl2)
             %% OPD PSD due to differential atmospheric refraction
             % Edlen 1966, Hardy Eq. 3.16, Fusco06 Eq. 8, Guyon 05 Eq. 28
             n     = @(x) ...%1.0 ...
@@ -276,6 +285,9 @@ classdef phaseStats
             %            alpha = n(wvl1InMicrons)/n(wvl2InMicrons);
             %            out = ((alpha-1)/alpha)^2*phaseStats.spectrum(f, atm);
             
+        end
+        function [O, S] = correctionChromatism(f, atm, wvl1, wvl2)
+            [O, S] = phaseStats.differentialRefraction(f, atm, wvl1, wvl2);
         end
          function out = AoASpectrum(f,o,atm,tel)
               %% AOASPECTRUM Angle-of-Arrival temporal power spectrum density for a round aperture of diameter D (tel.D)

@@ -89,6 +89,9 @@ classdef pupilGenerator < matlab.mixin.Copyable %% handle class + deep copy avai
                 end
                 obj.SMC=obj.SMC+2*maxOffset;
                 obj.nPixels=ceil(obj.SMC*(obj.pixelRatio))+obj.segRef.nPxInterp;
+                if ~isempty(obj.D) %embed in a larger cimputational domain
+                    obj.nPixels = round(max(obj.SMC + obj.segRef.radius*2*obj.pixelRatio, obj.D*obj.pixelRatio));
+                end
                 %                 if isempty(obj.D)
                 %                     obj.D=(max(obj.segmentCoord(:,2))-min(obj.segmentCoord(:,2))+2*obj.segRef(1).radius);
                 %                 end
@@ -145,8 +148,11 @@ classdef pupilGenerator < matlab.mixin.Copyable %% handle class + deep copy avai
             obj.matrix = zeros(obj.nPixels);
             % Filling pupil
             for k=1:obj.nSegments
-                [posx,posy]           = obj.getPosSeg(k);
-                obj.matrix(posx,posy) = obj.matrix(posx,posy) + obj.segList(k).matrix;
+                [posx,posy]             = obj.getPosSeg(k);
+                kthSegmentMap           = obj.segList(k).matrix;
+                overlap = find(obj.matrix(posx,posy) & kthSegmentMap);
+                kthSegmentMap(overlap)  = 0; %null out overlapping points
+                obj.matrix(posx,posy) = obj.matrix(posx,posy) + kthSegmentMap;
             end
             
             if obj.verbose

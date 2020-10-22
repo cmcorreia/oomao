@@ -223,7 +223,16 @@ classdef deformableMirror < handle
             else
                 error('oomao:deformableMirror:set.validActuator','Sorry only downsizing is possible!')
             end
-        end        
+        end
+        % set the validActuator map based on a user-defined threshold
+        function val = setValidActuator(obj,pupil,threshold)
+            influence = max(bsxfun(@times, obj.modes.modes,pupil(:)));
+            idx = influence > threshold;
+            val = zeros(size(obj.validActuator));
+            val(idx) = 1;
+            val = logical(val);
+            obj.validActuator = val;
+        end
         %% Get the dm shape
         function dmShape = get.surface(obj)
             obj.p_surface = obj.modes*obj.coefs;

@@ -89,7 +89,7 @@ classdef sparseLMMSE < handle
         %
         tPredict
         tMulti
-        maskAmplitudeWighted;
+        maskAmplitudeWeighted;
         
         % flag for computing the rotation matrix
         rotatedFrame;
@@ -172,10 +172,10 @@ classdef sparseLMMSE < handle
             inputs.addOptional('isWarmStart', true, @islogical );
             inputs.addOptional('tPredict', 0, @isnumeric );
             inputs.addOptional('tMulti', 0, @isnumeric );
-            inputs.addOptional('maskAmplitudeWighted', [], @islogical); % need to be tested....
+            inputs.addOptional('maskAmplitudeWeighted', [], @islogical); % need to be tested....
             inputs.addOptional('overSampling',[], @isnumeric);
             inputs.addOptional('phaseCovariance','L2',@ischar);
-            inputs.addOptional('outputWavefrontMask',[],@isnumeric);
+            inputs.addOptional('outputWavefrontMask',[],@islogical);
             inputs.addOptional('layerEstimation', false, @islogical);
             inputs.addOptional('rotatedFrame', false, @islogical );
             
@@ -195,7 +195,7 @@ classdef sparseLMMSE < handle
             obj.RTOL          = inputs.Results.RTOL;
             obj.MAXIT         = inputs.Results.MAXIT;
             obj.warmStart     = inputs.Results.isWarmStart;
-            obj.maskAmplitudeWighted = inputs.Results.maskAmplitudeWighted;
+            obj.maskAmplitudeWeighted = inputs.Results.maskAmplitudeWeighted;
             obj.phaseCovariance = inputs.Results.phaseCovariance;
             obj.solver        = inputs.Results.solver;
             obj.layerEstimation= inputs.Results.layerEstimation;
@@ -338,8 +338,8 @@ classdef sparseLMMSE < handle
         function setGamma(obj)
             [p_Gamma,phaseMask3x3] = sparseGradientMatrix3x3Stentil(obj.wfs);
             p_Gamma = p_Gamma/2/obj.dSub;
-            if ~isempty(obj.maskAmplitudeWighted)
-                [p_Gamma,phaseMask3x3] = sparseGradientMatrixAmplitudeWeighted(obj.wfs, obj.maskAmplitudeWighted);
+            if ~isempty(obj.maskAmplitudeWeighted)
+                [p_Gamma,phaseMask3x3] = sparseGradientMatrixAmplitudeWeighted(obj.wfs, obj.maskAmplitudeWeighted);
                 p_Gamma = p_Gamma/obj.dSub;
             end
             obj.Gamma = cell(obj.nGuideStar,1);

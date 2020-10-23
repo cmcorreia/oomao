@@ -227,8 +227,12 @@ classdef sparseLMMSE < handle
             if isempty(inputs.Results.outputWavefrontMask)
                 obj.outputWavefrontMask = inputs.Results.wfs.validActuator;
             end
-            
-            [x,y] = meshgrid(linspace(-1,1,obj.nSub+1)*obj.D/2);
+            [sx, sy] = size(obj.outputWavefrontMask);
+            if sx == 2*obj.nSub+1 %overSampling output by factor 2
+                [x,y] = meshgrid(linspace(-1,1,2*obj.nSub+1)*obj.D/2);
+            else
+                [x,y] = meshgrid(linspace(-1,1,obj.nSub+1)*obj.D/2);
+            end
             obj.outputPhaseGrid = complex(x(obj.outputWavefrontMask),y(obj.outputWavefrontMask));
             
             %Compute individual compouds

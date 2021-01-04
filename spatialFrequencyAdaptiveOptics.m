@@ -916,7 +916,8 @@ classdef spatialFrequencyAdaptiveOptics < handle
             obj.atm.wavelength = wvlRef;
         end
         function [opdPSD, ampPSD] = dispersionDisplacementPSD(obj, zenithAngleInDeg, wvlWfs, wvlSci)
-            n     = @(x) (8.34213e-5 + 0.0240603/(130-x^2)+ 0.00015997/(38.9-x^2)); % Hardy Eq. (3.16). Index of refraction (and not refractivity) variations at standard temperature and pressure 
+            n     = @(x) (8.34213e-5 + 0.0240603/(130-x^(-2))+ 0.00015997/(38.9-x^(-2))); % Hardy Eq. (3.16). Index of refraction (and not refractivity) variations at standard temperature and pressure 
+            %n = @(x) 1e-4*(2.01+ (1/40./x) - x.^2/100000);
             wvlRef = obj.atm.wavelength;
             obj.atm.wavelength = wvlSci;
             f = hypot(obj.fx, obj.fy);
@@ -931,6 +932,7 @@ classdef spatialFrequencyAdaptiveOptics < handle
             [opdPSD, ampPSD] = phaseStats.differentialRefraction(f, obj.atm, wvlWfs, wvlSci);
             obj.atm.wavelength = wvlRef;
         end
+        %%
         function [outInRadSqSciWvl, outInNmRms] = varChromatic(obj, wvlWfs, wvlSci, zenithAngleInDeg, flagOpdRejection)
             if ~exist('zenithAngleInDeg','var') || isempty(zenithAngleInDeg)
                 zenithAngleInDeg = 0;
@@ -949,23 +951,75 @@ classdef spatialFrequencyAdaptiveOptics < handle
             end
             % Fresnel chromaticity
             [opdPSD, ampPSD] = fresnelChromaticityPSD(obj, wvlWfs, wvlSci);
-            varPhFresnelChrom = trapz(obj.fy(:,1),trapz(obj.fx(1,:),opdPSD.*RTF,2));
+            varPhFresnelChrom = trapz(obj.fy(:,1),trapz(obj.fx(1,:),opdPSD.*pf,2));
             varAmpFresnelChrom = trapz(obj.fy(:,1),trapz(obj.fx(1,:),ampPSD,2));
             
             % Dispersion displacement
             [opdPSD, ampPSD] = dispersionDisplacementPSD(obj, zenithAngleInDeg, wvlWfs, wvlSci);
-            varPhDispDisp = trapz(obj.fy(:,1),trapz(obj.fx(1,:),opdPSD.*RTF,2));
+            varPhDispDisp = trapz(obj.fy(:,1),trapz(obj.fx(1,:),opdPSD.*pf,2)); % RTF should not multiply here
             varAmpDispDisp = trapz(obj.fy(:,1),trapz(obj.fx(1,:),ampPSD,2));
                     
             % Differential refraction
             [opdPSD, ampPSD] = differentialRefractionPSD(obj, wvlWfs, wvlSci);
-            varPhDiffRefraction = trapz(obj.fy(:,1),trapz(obj.fx(1,:),opdPSD.*RTF,2));
+            varPhDiffRefraction = trapz(obj.fy(:,1),trapz(obj.fx(1,:),opdPSD.*pf,2));
             varAmpDiffRefraction = trapz(obj.fy(:,1),trapz(obj.fx(1,:),ampPSD,2));
             
             outInRadSqSciWvl = varPhFresnelChrom + varAmpFresnelChrom + ...
                 varPhDispDisp + varAmpDispDisp + ...
                 varPhDiffRefraction + varAmpDiffRefraction;
             outInNmRms = sqrt(outInRadSqSciWvl)*wvlSci/2/pi*1e9;
+        end
+        %%
+        function radialPlotChromaticError(obj, wvlWfs, wvlSci, zenithAngleInDeg, flagOpdRejection)
+            if ~exist('zenithAngleInDeg','var') || isempty(zenithAngleInDeg)
+                zenithAngleInDeg = 0;
+            end
+            if ~exist('flagOpdRejection','var') || isempty(flagOpdRejection)
+                flagOpdRejection = 1;
+            end
+            if flagOpdRejection
+                [~,RTF] = obj.anisoServoLagPSD(obj.fx, obj.fy);
+                resolution = length(obj.fx);
+                RTF = reshape(RTF,resolution,resolution);
+                pf = obj.pistonFilter(hypot(obj.fx,obj.fy));
+            else
+                pf = 1;
+                RTF = 1;
+            end
+            wvlAtm = obj.atm.wavelength;
+            obj.atm.wavelength = wvlSci;
+            f = hypot(obj.fx, obj.fy);
+            % OPD and AMP PSDs
+            PSDopd = phaseStats.spectrum(f,obj.atm);
+            PSDamp = phaseStats.ampSpectrum(f,obj.atm);
+            loglog(obj.fx(1,end/2+1:end), radial(PSDopd.*pf),'k','LineWidth',2,'DisplayName','uncorrected OPD PSD')
+            hold on
+            loglog(obj.fx(1,end/2+1:end), radial(PSDamp.*pf),'k--','LineWidth',2,'DisplayName','uncorrected AMP PSD')
+            % Fresnel chromaticity
+            [opdPSD, ampPSD] = fresnelChromaticityPSD(obj, wvlWfs, wvlSci);
+            loglog(obj.fx(1,end/2+1:end), radial(opdPSD.*pf),'r','DisplayName','Fresnel OPD PSD')
+            hold on
+            loglog(obj.fx(1,end/2+1:end), radial(ampPSD.*pf),'r--','DisplayName','Fresnel AMP PSD')        
+            
+            % Dispersion displacement
+            [opdPSD, ampPSD] = dispersionDisplacementPSD(obj, zenithAngleInDeg, wvlWfs, wvlSci);
+            loglog(obj.fx(1,end/2+1:end), radial(opdPSD.*pf),'g','DisplayName','Dispersion displacement OPD PSD')
+            hold on
+            loglog(obj.fx(1,end/2+1:end), radial(ampPSD.*pf),'g--','DisplayName','Dispersion displacement AMP PSD')  
+                    
+            % Differential refraction
+            [opdPSD, ampPSD] = differentialRefractionPSD(obj, wvlWfs, wvlSci);
+            loglog(obj.fx(1,end/2+1:end), radial(opdPSD.*pf),'b','DisplayName','Differential refraction OPD PSD')
+            hold on
+            loglog(obj.fx(1,end/2+1:end), radial(ampPSD.*pf),'b--','DisplayName','Differential refraction AMP PSD')           
+            legend
+            pbaspect([1.618 1 1])
+            grid on
+            xlabel('Spatial-frequency, [m^{-1}]')
+            ylabel('[rad^2/m^{-1}]')
+            title(['Spatial PSD uncorrected chromaticity, \lambda_{sci}=' ... 
+                num2str(wvlSci*1e6,'%2.1f') '\mum, \lambda_{WFS}=' num2str(wvlWfs*1e6,'%2.1f') '\mum' ])
+            obj.atm.wavelength = wvlAtm;
         end
         
         function varargout = image(obj,resolution,pixelScaleInMas, telOtf)

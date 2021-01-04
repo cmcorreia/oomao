@@ -492,7 +492,8 @@ classdef source < stochasticWave & hgsetget
             end
             if (ndims(obj)~=3)
                 relay(otherObj,obj);
-            elseif strcmpi(otherObj.tag,'SHACK-HARTMANN') % LGS
+            %elseif strcmpi(otherObj.tag,'SHACK-HARTMANN') % LGS
+            elseif isa(otherObj,'shackHartmann') % LGS
 %                 disp('LGS through a Shack!')
                 uplus(obj)
             end            
@@ -520,7 +521,7 @@ classdef source < stochasticWave & hgsetget
                     obj_3 = obj(:,:,kObj);
                     for kOpticalpath=1:nOpticalPath
                         otherObj = obj_3(1).opticalPath{kOpticalpath};
-                        if strcmpi(otherObj.tag,'SHACK-HARTMANN')
+                        if isa(otherObj,'shackHartmann')% strcmpi(otherObj.tag,'SHACK-HARTMANN')
                             wavePrgted = propagateThrough(otherObj.lenslets,obj_3);
                             buffer = buffer + wavePrgted.*conj(wavePrgted);
                         else
@@ -529,7 +530,7 @@ classdef source < stochasticWave & hgsetget
                     end
                     reset(obj_3)
                 end
-                if strcmpi(otherObj.tag,'SHACK-HARTMANN')
+                if isa(otherObj,'shackHartmann')% strcmpi(otherObj.tag,'SHACK-HARTMANN')
                     otherObj.lenslets.imagelets = buffer*otherObj.lenslets.throughput;
                     relay(otherObj,obj,'lenslets set!')
                 end

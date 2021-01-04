@@ -33,6 +33,7 @@ classdef spatialFrequencyAdaptiveOptics < handle
         filter;
         binning;
         f_filter; %Spatial filter frequency
+        nRatio = 1; % ratio of refractivity indeces at WFS and SCI wavelengths
     end
     
     properties (Dependent)
@@ -66,6 +67,7 @@ classdef spatialFrequencyAdaptiveOptics < handle
             addOptional(inputs,'nTh',1,@isnumeric);
             addOptional(inputs,'binning',1,@isnumeric);
             addOptional(inputs,'f_filter',[],@isnumeric);
+            addOptional(inputs,'src',[], @(x) isa(x,'source') );
             parse(inputs, tel, atm, ...
                 nActuator, noiseVariance, loopGain, samplingTime, latency, resolution,filter, MV, varargin{:});
             
@@ -91,6 +93,19 @@ classdef spatialFrequencyAdaptiveOptics < handle
             obj.fx = obj.fx*obj.fc + 1e-7;
             obj.fy = obj.fy*obj.fc + 1e-7;
             
+            
+            % Source
+            
+            if ~isempty(inputs.Results.src)
+                obj.src = inputs.Results.src;
+                n     = @(x) (8.34213e-5 + 0.0240603/(130-x^(-2))+ 0.00015997/(38.9-x^(-2))); % Hardy Eq. (3.16). Index of refraction (and not refractivity) variations at standard temperature and pressure 
+                obj.nRatio = n(obj.src.wavelengthInMicron)/n(obj.atm.wavelength*1e6);
+            else
+                % DEFAULT SOURCE
+                obj.src = source('zenith',0*constants.arcsec2radian,'azimuth',0,'wavelength',photometry.H,'magnitude',12);
+                obj.nRatio = 1;
+            end
+            
             % RECONSTRUCTION FILTER
             if strcmp(filter,'pyr') || strcmp(filter,'pyramid')|| strcmp(filter,'Conan')|| strcmp(filter,'Fauvarque')
                 pyramidReconstructionFilter(obj)
@@ -103,9 +118,6 @@ classdef spatialFrequencyAdaptiveOptics < handle
             else
                 controller(obj,'int')
             end
-            % DEFAULT SOURCE
-            % Source
-            obj.src = source('zenith',0*constants.arcsec2radian,'azimuth',0,'wavelength',photometry.H,'magnitude',12);
             
             obj.paramListener = ...
                 addlistener(obj,...
@@ -391,7 +403,10 @@ classdef spatialFrequencyAdaptiveOptics < handle
                 
                 %nTh = obj.nTh;
                 [obj.h1, obj.h2] = integralOverWindDirections(obj,atfInt,fx_,fy_);
+                obj.h1 = obj.h1*obj.nRatio;
+                obj.h2 = obj.h2*obj.nRatio^2;
                 [obj.hn] = integralOverWindDirections(obj,ntfInt,fx_,fy_);
+                obj.hn = obj.hn*obj.nRatio;
                 
                 if exist('hTFs','var')
                     figure(hTFs);
@@ -521,7 +536,10 @@ classdef spatialFrequencyAdaptiveOptics < handle
                 obj.noiseGain = lqgNoisePropFactor;
                 %nTh = obj.nTh;
                 [obj.h1, obj.h2, obj.hn] = integralOverWindDirectionsDKF(obj,A, B, C, Minfi,fx_,fy_);
-                
+                obj.h1 = obj.h1*obj.nRatio;
+                obj.h2 = obj.h2*obj.nRatio^2;
+                obj.hn = obj.hn*obj.nRatio;
+
             end
             
             

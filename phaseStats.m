@@ -269,7 +269,8 @@ classdef phaseStats
             %% OPD PSD due to differential atmospheric refraction
             % Edlen 1966, Hardy Eq. 3.16, Fusco06 Eq. 8, Guyon 05 Eq. 28
             n     = @(x) ...%1.0 ...
-                + 8.34213e-5 + 0.0240603/(130-x^2)+ 0.00015997/(38.9-x^2); % Hardy Eq. (3.16). Inex of refraction (and not refractivity) variations at standard temperature and pressure
+                + 8.34213e-5 + 0.0240603/(130-x^(-2))+ 0.00015997/(38.9-x^(-2)); % Hardy Eq. (3.16). Inex of refraction (and not refractivity) variations at standard temperature and pressure
+            %n = @(x) 1e-4*(2.01+ (1/40./x) - x.^2/100000);
             wvl1InMicrons = wvl1*1e6;
             wvl2InMicrons = wvl2*1e6;
             O = phaseStats.spectrum(f, atm).*...

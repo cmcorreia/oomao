@@ -226,6 +226,8 @@ classdef sparseLMMSE < handle
             
             if isempty(inputs.Results.outputWavefrontMask)
                 obj.outputWavefrontMask = inputs.Results.wfs.validActuator;
+            else
+                obj.outputWavefrontMask = inputs.Results.outputWavefrontMask;
             end
             [sx, sy] = size(obj.outputWavefrontMask);
             if sx == 2*obj.nSub+1 %overSampling output by factor 2

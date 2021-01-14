@@ -267,16 +267,17 @@ classdef phaseStats
         
         function [O, S] = differentialRefraction(f, atm, wvl1, wvl2)
             %% OPD PSD due to differential atmospheric refraction
-            % Edlen 1966, Hardy Eq. 3.16, Fusco06 Eq. 8, Guyon 05 Eq. 28
-            n     = @(x) ...%1.0 ...
-                + 8.34213e-5 + 0.0240603/(130-x^(-2))+ 0.00015997/(38.9-x^(-2)); % Hardy Eq. (3.16). Inex of refraction (and not refractivity) variations at standard temperature and pressure
-            %n = @(x) 1e-4*(2.01+ (1/40./x) - x.^2/100000);
+            % f - frequency vector
+            % atm - atm object
+            % wvl1 and wvl2 in meters
             wvl1InMicrons = wvl1*1e6;
             wvl2InMicrons = wvl2*1e6;
+            n1 = phaseStats.nstp(wvl1InMicrons);
+            n2 = phaseStats.nstp(wvl2InMicrons);
             O = phaseStats.spectrum(f, atm).*...
-                ((n(wvl1InMicrons) - n(wvl2InMicrons))/n(wvl2InMicrons))^2;
+                ((n1 - n2)/n2)^2;
             S = phaseStats.ampSpectrum(f, atm).*...
-                ((n(wvl1InMicrons) - n(wvl2InMicrons))/n(wvl2InMicrons))^2;
+                ((n1 - n2)/n2)^2;
             % The TFusco06 implementation in Eq 12 & 13 give the same result
             % as above
             %            nAverage = (n(wvl1InMicrons) + n(wvl2InMicrons))/2;
@@ -287,10 +288,26 @@ classdef phaseStats
             %            out = ((alpha-1)/alpha)^2*phaseStats.spectrum(f, atm);
             
         end
+        %% correction chromatism = differential refraction
         function [O, S] = correctionChromatism(f, atm, wvl1, wvl2)
             [O, S] = phaseStats.differentialRefraction(f, atm, wvl1, wvl2);
         end
-         function out = AoASpectrum(f,o,atm,tel)
+        
+        %% refractive index fluctuations -  n at standard temperature and pressure
+        function n = nstp(wvl, T, P)
+            % Edlen 1966, Hardy Eq. 3.16, Fusco06 Eq. 8, Guyon 05 Eq. 28
+            %n     = @(x) ...%1.0 ...
+            %    + 8.34213e-5 + 0.0240603/(130-x^(-2))+ 0.00015997/(38.9-x^(-2)); % Hardy Eq. (3.16). Inex of refraction (and not refractivity) variations at standard temperature and pressure
+            %
+            if nargin == 1
+                T = 12; %ºC
+                P = 1000; % bar
+            end
+            nstp = @(wvl, t, p) 1e-8*(8342.13+2406030./(130.0-wvl.^(-2))+15997./(38.9-wvl.^(-2))).*0.0010413*p/(1+0.003671*t); % Hardy Eq. (3.16) for standard Temperature (ºC) and pressure (mbar)
+            n = nstp(wvl,T,P);
+        end
+        %%
+        function out = AoASpectrum(f,o,atm,tel)
               %% AOASPECTRUM Angle-of-Arrival temporal power spectrum density for a round aperture of diameter D (tel.D)
              fx = f.*cos(o);
              out = phaseStats.spectrum( f , atm ) .* abs(2*1i*pi*fx.*besselj(1,pi*tel.D*f)./(pi*tel.D*f)).^2;

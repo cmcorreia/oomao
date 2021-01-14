@@ -208,8 +208,8 @@ classdef sparseLMMSE < handle
                 obj.slopesMask = inputs.Results.slopesMask;
             else
                 obj.slopesMask = repmat( repmat( inputs.Results.wfs.validLenslet(:) , 2, 1), 1, obj.nGuideStar );
-            end;
-            makePhaseMask(obj);
+            end
+            
             obj.p_mmseStar    = inputs.Results.mmseStar;
             if isempty(obj.p_mmseStar)
                 obj.p_mmseStar = obj.guideStar;
@@ -218,6 +218,9 @@ classdef sparseLMMSE < handle
             obj.overSampling = inputs.Results.overSampling;
             if isempty(obj.overSampling)
                 obj.overSampling = ones(obj.atmModel.nLayer,1)*2;
+            end
+            if isscalar(obj.overSampling)
+                obj.overSampling = ones(obj.atmModel.nLayer,1)*max(obj.overSampling,2);
             end
             
             obj.log = logBook.checkIn(obj);
@@ -230,13 +233,16 @@ classdef sparseLMMSE < handle
                 obj.outputWavefrontMask = inputs.Results.outputWavefrontMask;
             end
             [sx, sy] = size(obj.outputWavefrontMask);
-            if sx == 2*obj.nSub+1 %overSampling output by factor 2
+            if sx == 4*obj.nSub+1 %overSampling output by factor 4
+                [x,y] = meshgrid(linspace(-1,1,4*obj.nSub+1)*obj.D/2);
+            elseif sx == 2*obj.nSub+1 %overSampling output by factor 2
                 [x,y] = meshgrid(linspace(-1,1,2*obj.nSub+1)*obj.D/2);
             else
                 [x,y] = meshgrid(linspace(-1,1,obj.nSub+1)*obj.D/2);
             end
             obj.outputPhaseGrid = complex(x(obj.outputWavefrontMask),y(obj.outputWavefrontMask));
             
+            makePhaseMask(obj);
             %Compute individual compouds
             defineAtmGrid(obj);
             if inputs.Results.rotatedFrame
@@ -298,15 +304,16 @@ classdef sparseLMMSE < handle
         
         function makePhaseMask(obj)
             %%  define mask for wavefront of WFS
-            nMap     = 2*obj.nSub+1;
+            os = obj.overSampling(1);
+            nMap     = os*obj.nSub+1;
             
-            [iMap0,jMap0] = ndgrid(1:3);
+            [iMap0,jMap0] = ndgrid(1:os+1);
             gridMask = false(nMap^2,obj.nGuideStar);
             for jLenslet = 1:obj.nSub
-                jOffset = 2*(jLenslet-1);
+                jOffset = os*(jLenslet-1);
                 for iLenslet = 1:obj.nSub
                     index1 = jLenslet+obj.nSub*(iLenslet-1);
-                    iOffset = 2*(iLenslet-1);
+                    iOffset = os*(iLenslet-1);
                     for kGs = 1:obj.nGuideStar
                         if obj.slopesMask(index1,kGs)
                             index2 = jMap0+jOffset+nMap*(iMap0+iOffset-1);
@@ -342,10 +349,16 @@ classdef sparseLMMSE < handle
         
         %% set the sparse gradient matrix using a 3x3 stencil
         function setGamma(obj)
-            [p_Gamma,phaseMask3x3] = sparseGradientMatrix3x3Stentil(obj.wfs);
-            p_Gamma = p_Gamma/2/obj.dSub;
+            if obj.overSampling(1) == 2 || obj.overSampling(1) == 1
+                [p_Gamma,phaseMask_] = sparseGradientMatrix3x3Stentil(obj.wfs);
+                p_Gamma = p_Gamma/2/obj.dSub;
+            elseif obj.overSampling(1) == 4
+                [p_Gamma,phaseMask_] = sparseGradientMatrixAmplitudeWeighted(obj.wfs,[],obj.overSampling(1));
+                p_Gamma = p_Gamma/obj.dSub;
+            end
+            
             if ~isempty(obj.maskAmplitudeWeighted)
-                [p_Gamma,phaseMask3x3] = sparseGradientMatrixAmplitudeWeighted(obj.wfs, obj.maskAmplitudeWeighted);
+                [p_Gamma,phaseMask_] = sparseGradientMatrixAmplitudeWeighted(obj.wfs, obj.maskAmplitudeWeighted);
                 p_Gamma = p_Gamma/obj.dSub;
             end
             obj.Gamma = cell(obj.nGuideStar,1);
@@ -353,10 +366,10 @@ classdef sparseLMMSE < handle
             for kGs = 1:obj.nGuideStar
                 if ~isempty(obj.rotationMatrix)
                     obj.Gamma{kGs} = p_Gamma(:,...
-                    obj.phaseMask(phaseMask3x3(:),kGs));
+                        obj.phaseMask(phaseMask_(:),kGs));
                 else
-                obj.Gamma{kGs} = p_Gamma(obj.slopesMask(vL,kGs),...
-                    obj.phaseMask(phaseMask3x3(:),kGs));
+                    obj.Gamma{kGs} = p_Gamma(obj.slopesMask(vL,kGs),...
+                        obj.phaseMask(phaseMask_(:),kGs));
                 end
             end
             obj.Gamma = blkdiag(obj.Gamma{:});
@@ -370,7 +383,12 @@ classdef sparseLMMSE < handle
 
         %% set propagator H from GS to WFS
         function setH(obj)
-            [x,y] = meshgrid(linspace(-.5,.5,2*obj.nSub+1)*obj.D);
+            if obj.overSampling == 2
+                [x,y] = meshgrid(linspace(-.5,.5,2*obj.nSub+1)*obj.D);
+            elseif obj.overSampling == 4
+                [x,y] = meshgrid(linspace(-.5,.5,4*obj.nSub+1)*obj.D);
+            end
+            
             grid = x+y*1i;
             p_H = cell(obj.nGuideStar,obj.atmModel.nLayer);
             for kGs = 1:obj.nGuideStar

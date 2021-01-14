@@ -95,11 +95,9 @@ classdef spatialFrequencyAdaptiveOptics < handle
             
             
             % Source
-            
             if ~isempty(inputs.Results.src)
                 obj.src = inputs.Results.src;
-                n     = @(x) (8.34213e-5 + 0.0240603/(130-x^(-2))+ 0.00015997/(38.9-x^(-2))); % Hardy Eq. (3.16). Index of refraction (and not refractivity) variations at standard temperature and pressure 
-                obj.nRatio = n(obj.src.wavelengthInMicron)/n(obj.atm.wavelength*1e6);
+                obj.nRatio = phaseStats.nstp(obj.src.wavelengthInMicron)/phaseStats.nstp(obj.atm.wavelength*1e6);
             else
                 % DEFAULT SOURCE
                 obj.src = source('zenith',0*constants.arcsec2radian,'azimuth',0,'wavelength',photometry.H,'magnitude',12);
@@ -934,12 +932,10 @@ classdef spatialFrequencyAdaptiveOptics < handle
             obj.atm.wavelength = wvlRef;
         end
         function [opdPSD, ampPSD] = dispersionDisplacementPSD(obj, zenithAngleInDeg, wvlWfs, wvlSci)
-            n     = @(x) (8.34213e-5 + 0.0240603/(130-x^(-2))+ 0.00015997/(38.9-x^(-2))); % Hardy Eq. (3.16). Index of refraction (and not refractivity) variations at standard temperature and pressure 
-            %n = @(x) 1e-4*(2.01+ (1/40./x) - x.^2/100000);
             wvlRef = obj.atm.wavelength;
             obj.atm.wavelength = wvlSci;
             f = hypot(obj.fx, obj.fy);
-            theta = (n(wvlWfs*1e6) - n(wvlSci*1e6))*tan(zenithAngleInDeg*pi/180);
+            theta = (phaseStats.nstp(wvlWfs*1e6) - phaseStats.nstp(wvlSci*1e6))*tan(zenithAngleInDeg*pi/180);
             [opdPSD, ampPSD] = phaseStats.dispersionDisplacement(f, obj.atm, theta);
             obj.atm.wavelength = wvlRef;
         end

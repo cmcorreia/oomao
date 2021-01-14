@@ -1305,7 +1305,7 @@ classdef shackHartmann < hgsetget
             
         end
         %%
-        function varargout = sparseGradientMatrixAmplitudeWeighted(obj,amplMask)
+        function varargout = sparseGradientMatrixAmplitudeWeighted(obj,amplMask,os)
             %% SPARSEGRADIENTMATRIX
             %
             % Gamma = sparseGradientMatrixAmplitudeWeighted(obj,amplMask)
@@ -1314,16 +1314,20 @@ classdef shackHartmann < hgsetget
             
             
             nLenslet = obj.lenslets.nLenslet;
-            factor = 2;
-            
-            if nargin == 1
-                amplMask = ones(factor*nLenslet+1);
+            if ~exist('os','var') || isempty(os)
+                osFactor = 2; % oversampling factor (default)
+            else 
+                osFactor = os;
             end
-            nMap     = factor*nLenslet+1;
-            nValidLenslet ...
-                = obj.nValidLenslet;
+            
+            if ~exist('amplMask','var') || isempty(amplMask)
+                amplMask = ones(osFactor*nLenslet+1);
+            end
+            
+            nMap     = osFactor*nLenslet+1;
+            nValidLenslet_ = obj.nValidLenslet;
             dsa = 1; %(meters) Raven subaperture width = 0.8m; NFIRAOS subaperture width = 0.5 m....
-            if factor == 2
+            if osFactor == 2
                 i0x = [1:3 1:3 1:3]; % x stencil row subscript
                 j0x = [ones(1,3) ones(1,3)*2 ones(1,3)*3]; % x stencil col subscript
                 i0y = [1 2 3 1 2 3 1 2 3]; % y stencil row subscript
@@ -1335,67 +1339,69 @@ classdef shackHartmann < hgsetget
                 %             s0y = -[ 1 -1  1 -1 1 -1]/3; % y stencil weight
                 Gv = [-2 2 -1 1; -2 2 -1 1; -1 1 -2 2; -1 1 -2 2];
                 
-                i_x = zeros(1,9*nValidLenslet);
-                j_x = zeros(1,9*nValidLenslet);
-                s_x = zeros(1,9*nValidLenslet);
-                i_y = zeros(1,9*nValidLenslet);
-                j_y = zeros(1,9*nValidLenslet);
-                s_y = zeros(1,9*nValidLenslet);
+                i_x = zeros(1,9*nValidLenslet_);
+                j_x = zeros(1,9*nValidLenslet_);
+                s_x = zeros(1,9*nValidLenslet_);
+                i_y = zeros(1,9*nValidLenslet_);
+                j_y = zeros(1,9*nValidLenslet_);
+                s_y = zeros(1,9*nValidLenslet_);
                 
                 [iMap0,jMap0] = ndgrid(1:3);
                 gridMask = false(nMap);
                 
                 u   = 1:9;
-            elseif factor == 4
+            elseif osFactor == 4
                 
-                i0x = [1:5 1:5]; % x stencil row subscript
-                j0x = [ones(1,5) ones(1,5)*5]; % x stencil col subscript
-                i0y = [1 5 1 5 1 5 1 5 1 5]; % y stencil row subscript
-                j0y = [1 1 2 2 3 3 4 4 5 5]; % y stencil col subscript
-                s0x = [-1 -1.5 -2 -1.5 -1  1 1.5 2 1.5 1]/factor; % x stencil weight
-                s0y = -[ 1 -1 1.5 -1.5 2 -2 1.5 -1.5 1 -1]/factor; % y stencil weight
+                i0x = [1:5 1:5 1:5 1:5 1:5]; % x stencil row subscript
+                j0x = [ones(1,5) ones(1,5)*2 ones(1,5)*3 ones(1,5)*4 ones(1,5)*5]; % x stencil col subscript
+                i0y = i0x; % y stencil row subscript
+                j0y = j0x; % y stencil col subscript
+                s0x = [-[1/8 5/8 1/2 5/8 1/8] zeros(1,15) [1/8 5/8 1/2 5/8 1/8]]/osFactor; % x stencil weight
+                s0y = -[ 1 -1 1.5 -1.5 2 -2 1.5 -1.5 1 -1]/osFactor; % y stencil weight
+                s0y = reshape(s0x,5,5)';
+                s0y = s0y(:)';
                 %             s0x = [-1 -1 -1  1 1  1]/3; % x stencil weight
                 %             s0y = -[ 1 -1  1 -1 1 -1]/3; % y stencil weight
                 
-                i_x = zeros(1,10*nValidLenslet);
-                j_x = zeros(1,10*nValidLenslet);
-                s_x = zeros(1,10*nValidLenslet);
-                i_y = zeros(1,10*nValidLenslet);
-                j_y = zeros(1,10*nValidLenslet);
-                s_y = zeros(1,10*nValidLenslet);
+                i_x = zeros(1,25*nValidLenslet_);
+                j_x = zeros(1,25*nValidLenslet_);
+                s_x = zeros(1,25*nValidLenslet_);
+                i_y = zeros(1,25*nValidLenslet_);
+                j_y = zeros(1,25*nValidLenslet_);
+                s_y = zeros(1,25*nValidLenslet_);
                 
                 [iMap0,jMap0] = ndgrid(1:5);
                 gridMask = false(nMap);
                 
-                u   = 1:10;
+                u   = 1:25;
             end
             % Accumulation of x and y stencil row and col subscript and weight
             for jLenslet = 1:nLenslet
-                jOffset = factor*(jLenslet-1);
+                jOffset = osFactor*(jLenslet-1);
                 for iLenslet = 1:nLenslet
                     
                     if obj.validLenslet(iLenslet,jLenslet)
                         
-                        I = (iLenslet-1)*factor+1;
-                        J = (jLenslet-1)*factor+1;
+                        I = (iLenslet-1)*osFactor+1;
+                        J = (jLenslet-1)*osFactor+1;
                         
-                        a = amplMask(I:I+factor,J:J+factor);
+                        a = amplMask(I:I+osFactor,J:J+osFactor);
                         numIllum = sum(a(:));
                         
-                        if numIllum == 9
+                        if numIllum == (osFactor+1)^2
                             
-                            iOffset= factor*(iLenslet-1);
+                            iOffset= osFactor*(iLenslet-1);
                             i_x(u) = i0x + iOffset;
                             j_x(u) = j0x + jOffset;
                             s_x(u) = s0x;
                             i_y(u) = i0y + iOffset;
                             j_y(u) = j0y + jOffset;
                             s_y(u) = s0y;
-                            u = u + (factor+1)*3;
+                            u = u + (osFactor+1)^2; %(osFactor+1)*3;
                             
                             gridMask( iMap0 + iOffset , jMap0 + jOffset ) = true;
                             
-                        elseif numIllum ~= 9
+                        elseif numIllum ~= (osFactor+1)^2
                             a11 = a(1:2,1:2);
                             a21 = a(2:3,1:2);
                             a12 = a(1:2,2:3);
@@ -1429,14 +1435,14 @@ classdef shackHartmann < hgsetget
                             %                             sPx = sPx(:);
                             %                             sPy = sPy(:);
                             
-                            iOffset= factor*(iLenslet-1);
+                            iOffset= osFactor*(iLenslet-1);
                             i_x(u) = i0x + iOffset;
                             j_x(u) = j0x + jOffset;
                             s_x(u) = mySx(:);
                             i_y(u) = i0y + iOffset;
                             j_y(u) = j0y + jOffset;
                             s_y(u) = mySy(:);
-                            u = u + (factor+1)*3;
+                            u = u + (osFactor+1)^2;%(osFactor+1)*3;
                             
                             gridMask( iMap0 + iOffset , jMap0 + jOffset ) = true;
                             
@@ -1449,10 +1455,10 @@ classdef shackHartmann < hgsetget
             indx = sub2ind([nMap,nMap],i_x,j_x); % mapping the x stencil subscript into location index on the phase map
             indy = sub2ind([nMap,nMap],i_y,j_y); % mapping the y stencil subscript into location index on the phase map
             % row index of non zero values in the gradient matrix
-            v = 1:2*nValidLenslet;
-            v = v(ones((factor+1)*3,1),:);
+            v = 1:2*nValidLenslet_;
+            v = v(ones((osFactor+1)^2,1),:);
             % sparse gradient matrix
-            Gamma = sparse(v,[indx,indy],[s_x,s_y],2*nValidLenslet,nMap^2);
+            Gamma = sparse(v,[indx,indy],[s_x,s_y],2*nValidLenslet_,nMap^2);
             Gamma(:,~gridMask) = [];
             
             varargout{1} = Gamma;

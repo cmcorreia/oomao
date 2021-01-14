@@ -11,9 +11,63 @@ classdef mask < handle
     %
     %  m =
     %  mask(n,nPx,'alpha',pi,'type','pyramidSLM','rotation',-pi/5,'centrePos',55);
-    %  creates a pyramid mask n-faced pyramid mask with rotation and centrePosition different from zero (user-defined) 
-    
-    
+    %  creates a pyramid mask n-faced pyramid mask with rotation and centrePosition different from zero (user-defined)
+    %
+    % m = mask(4,256,'rotation',[0.25 0]*pi);
+    % creates a mask with the vertical edge rotated by pi/4 degrees and the
+    % horizontal axis remaining unaffected
+    %{
+    %% individual defects
+    figure (1)
+    % reference pyramid mask
+    m = mask(4,256);
+    subplot(2,3,1)
+    imagesc(m)
+    title('Defect-free phase mask')
+    axis off
+    % decentered mask
+    m = mask(4,256,'centrePos',[-10 20]);
+    subplot(2,3,2)
+    imagesc(m)
+    title('Decentred phase mask')
+    axis off
+    % rotated edges mask
+    m = mask(4,256,'rotation',[0.3 1]*pi/4);
+    subplot(2,3,3)
+    imagesc(m)
+    title('Rotaded edge phase mask')
+    axis off
+    % rooftop mask
+    m = mask(4,256,'rooftop',[50 0]);
+    subplot(2,3,4)
+    imagesc(m)
+    title('Rooftopped phase mask')
+    axis off
+    % facet output angle
+    alpha = [1 1 1 1]*pi/2 + 1i*[0 0.0 0.0 0.2]*pi/2;
+    m = mask(4,256,'alpha',alpha);
+    subplot(2,3,5)
+    imagesc(m)
+    title('Output-angle phase mask')
+    axis off
+    % edgewidth
+    m = mask(4,256,'edgeWidth',[10 0]);
+    subplot(2,3,6)
+    imagesc(m)
+    title('Edge-width phase mask')
+    axis off
+
+    figs(gca,'pwfsPhaseMasIndividualDefects')
+    %% all effects at once
+    figure(2)
+    m = mask(4,256,'edgeWidth',[10 0], 'alpha',alpha, 'rooftop',[50 0], 'rotation',[0.3 1]*pi/4,'centrePos',[-10 20]);
+    imagesc(m)
+    axis square
+    axis off
+    title('All-defects phase mask')
+    set(gca,'fontSize',16)
+    figs(gca,'pwfsPhaseMaskAllDefects')
+        %}
     properties
         
         % # of points
@@ -28,11 +82,20 @@ classdef mask < handle
         % # faces
         nFaces
         
-        % angle of the faces
+        % angle of the faces. Default pi/2 separates re-imaged pupils by 2x
+        % the diameter (centre to centre)
         alpha
         
-        % rotation with respect to centre (in radians)
+        % rotation with respect to centre (in radians) \in [-pi/4:pi/4]. If
+        % two-dimensional, each value rotates one of the pyramid axis
+        % individualy
         rotation
+        
+        % edgeWidth in pixels
+        edgeWidth
+        
+        %rooftop in pixels
+        rooftop
         
         % phase map
         phaseMask
@@ -67,6 +130,8 @@ classdef mask < handle
             
             addOptional(p,'centrePos',0,@isnumeric);
             addOptional(p,'rotation',0,@isnumeric);
+            addOptional(p,'edgeWidth',[0,0],@isnumeric);
+            addOptional(p,'rooftop',[0,0],@isnumeric);
             
             paramName = 'type';
             validationFcn = @(x) validateattributes(x,{'char'},{'nonempty'});
@@ -84,17 +149,25 @@ classdef mask < handle
             obj.centrePos   = p.Results.centrePos;
             if obj.centrePos == 0
                 obj.centrePos = obj.resolution/2+0.5;
+            else
+                if size(obj.centrePos,1) > size(obj.centrePos,2)
+                    obj.centrePos = obj.centrePos + (obj.resolution/2+0.5);
+                else
+                    obj.centrePos = obj.centrePos' + (obj.resolution/2+0.5);
+                end
             end
             if length(obj.centrePos) == 1
-                obj.centrePos = [1;1]*obj.centrePos; 
+                obj.centrePos = [1;1]*obj.centrePos;
             end
-            obj.alpha = p.Results.alpha;
-            obj.rotation = p.Results.rotation;
+            obj.alpha       = p.Results.alpha;
+            obj.rotation    = p.Results.rotation;
+            obj.edgeWidth   = p.Results.edgeWidth;
+            obj.rooftop     = p.Results.rooftop;
             switch obj.type
                 case 'pyramid'
-                    pyramid(obj, obj.alpha)
+                    pyramid(obj, obj.centrePos, obj.alpha, obj.edgeWidth, obj.rotation, obj.rooftop)
                 case 'pyramidSLM'
-                    pyramidSLM(obj, obj.nFaces, obj.alpha, obj.centrePos, obj.rotation)
+                    pyramidSLM(obj, obj.nFaces, obj.alpha, obj.centrePos, obj.rotation,obj.edgeWidth)
                 case 'zelda'
                 case 'FQMP'
                 otherwise
@@ -131,7 +204,19 @@ classdef mask < handle
             imagesc(obj.phaseMask)
         end
         %% Set the DEFAULT 4-sided pyramid mask
-        function obj = pyramid(obj, alpha,rooftop)
+        function obj = pyramid(obj, centrePos, alpha, edgeWidth, rotation, rooftop)
+            if ~exist('centrePos','var') || isempty(centrePos)
+                cx = 0;
+                cy = 0;
+            else
+                cx = centrePos(1) - obj.resolution(1)/2+0.5;
+                cy = centrePos(2) - obj.resolution(2)/2+0.5;
+            end
+            
+            if ~exist('edgeWidth','var') || isempty(edgeWidth)
+                edgeWidth = [0 0];
+            end
+            
             if ~exist('rooftop','var') || isempty(rooftop)
                 rooftop = [0 0];
             end
@@ -144,43 +229,68 @@ classdef mask < handle
             imagAlpha = imag(realAlpha);
             realAlpha = real(realAlpha);
             
-            nx = rooftop(1);
-            ny = rooftop(2);
+            nx = edgeWidth(1);
+            ny = edgeWidth(2);
+            
+            
+            if ~exist('rotation','var') || isempty(rotation)
+                rotation = [0 0];
+            end
+            if isscalar(rotation)
+                r1 = rotation/(pi/4);
+                r2 = rotation/(pi/4);
+            else
+                r1 = rotation(1)/(pi/4);
+                r2 = rotation(2)/(pi/4);
+            end
             
             [fx,fy] = freqspace(obj.resolution,'meshgrid');
-            fx = fx.*floor(obj.resolution(1)/2);
-            fy = fy.*floor(obj.resolution(2)/2);
-            %pym = zeros(pxSide);
+            fx0 = fx.*floor(obj.resolution(1)/2)-cx;
+            fy0 = fy.*floor(obj.resolution(2)/2)-cy;
             
+            fx = fx0 +r1*fy0;
+            fy = fy0 -r2*fx0;
+            %ny = -ny;
+            %pym = zeros(pxSide);
+            Hx = graduatedHeaviside(fx,nx);
+            Hy = graduatedHeaviside(fy,ny);
             % pyramid face transmitance and phase for fx>=0 & fy>=0
-            mask  = graduatedHeaviside(fx,nx).*graduatedHeaviside(fy,nx);
+            %mask  = graduatedHeaviside(fx,nx).*graduatedHeaviside(fy,ny);
+            mask = Hx.*Hy;
             phase = -realAlpha(1).*(fx+fy) + -imagAlpha(1).*(-fx+fy);
             pym   = mask.*exp(1i.*phase);
             pyp   = mask.*phase;
             % pyramid face transmitance and phase for fx>=0 & fy<=0
-            mask  = graduatedHeaviside(fx,ny).*graduatedHeaviside(-fy,-ny);
+            %mask  = graduatedHeaviside(fx,nx).*graduatedHeaviside(-fy,-ny);
+            mask = Hx.*(1-Hy);
             phase = -realAlpha(2).*(fx-fy) + -imagAlpha(2).*(fx+fy);
             pym   = pym + mask.*exp(1i.*phase);
             pyp   = pyp + mask.*phase;
-            
             % pyramid face transmitance and phase for fx<=0 & fy<=0
-            mask  = graduatedHeaviside(-fx,-nx).*graduatedHeaviside(-fy,-nx);
-            phase = realAlpha(3).*(fx+fy) + -imagAlpha(3).*(fx-fy);
+            %mask  = graduatedHeaviside(-fx,-nx).*graduatedHeaviside(-fy,-ny);
+            mask = (1-Hx).*(1-Hy);
+            phase = -realAlpha(3).*(-fx-fy) + -imagAlpha(3).*(fx-fy);
             pym   = pym + mask.*exp(1i.*phase);
             pyp   = pyp + mask.*phase;
             % pyramid face transmitance and phase for fx<=0 & fy>=0
-            mask  = graduatedHeaviside(-fx,-ny).*graduatedHeaviside(fy,ny);
+            %mask  = graduatedHeaviside(-fx,-nx).*graduatedHeaviside(fy,ny);
+            mask = (1-Hx).*Hy;
             phase = -realAlpha(4).*(-fx+fy) + -imagAlpha(4).*(-fx-fy);
             pym   = pym + mask.*exp(1i.*phase);
             pyp   = pyp + mask.*phase;
+            % apply rooftop
+            pyp = pyp + rooftop(1);
+            pyp(pyp >0) = 0;
+            pym = exp(1i.*pyp);
+            
             obj.phaseMask = pyp;
             obj.theMask = fftshift(pym)./sum(abs(pym(:)));
         end
         %% Set pyramid phase map
-        function obj = pyramidSLM(obj, nFaces, angle, centrePos, rotation, rooftop)
+        function obj = pyramidSLM(obj, nFaces, angle, centrePos, rotation, edgeWidth)
             
-            if ~exist('rooftop','var') || isempty(rooftop)
-                rooftop = [0 0];
+            if ~exist('edgeWidth','var') || isempty(edgeWidth)
+                edgeWidth = [0 0];
             end
             nx = obj.resolution(1);
             ny = obj.resolution(2);
@@ -205,10 +315,7 @@ classdef mask < handle
             for kFaces=0:nFaces-1
                 theta = pi*(1/nFaces - 1) + kFaces*2*pi/nFaces + rotation;
                 slope = sin(theta)*xGrid + cos(theta)*yGrid;
-
-                %slope((-pi+kFaces*2*pi/nFaces >= angleGrid) |...
-                %    (angleGrid >= (-pi+(kFaces + 1)*2*pi/nFaces))) = 0;
-
+                
                 % Take into account the last tile of the pyramid mask
                 if kFaces == nFaces-1
                     slope((-pi+kFaces*2*pi/nFaces <= angleGrid) &...
@@ -217,7 +324,6 @@ classdef mask < handle
                     slope((-pi+kFaces*2*pi/nFaces <= angleGrid) &...
                         (angleGrid < (-pi+(kFaces + 1)*2*pi/nFaces))) = 0;
                 end
-                
                 pyp = pyp + angle*slope;
             end
             

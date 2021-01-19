@@ -45,6 +45,7 @@ classdef pyramid < handle
         pixelGains = 1;             % camera pixel gains
         extendedObject = 0;         % flag for extended object
         fftPhasor = 1;              % pre-computation of the fftPhasor for the extended object case
+        pyrMask;                    % pyramid face transmitance and phase
         useLinearIntensityLightMap=0;% use the physical-optics pyramidTransform model or instead a linear approximation (cf O. Fauvarque)
         graphicalDisplay = 0;       % sets the display ON or OFF (useful for cluster execution)
     end
@@ -59,7 +60,6 @@ classdef pyramid < handle
         % over dimensions of nLensletxnLenslet
         % (for compatability with shackHartmann
         % functions)
-        pyrMask;                    % pyramid face transmitance and phase
         fpIm = 0;                   % image of the focal plane at the tip of the pyramid
         frameCalibration            % detector pixel intensity for the calibration WFS with larger modulation
     end
@@ -394,7 +394,10 @@ classdef pyramid < handle
         function set.wvlRange(pwfs,val)
             pwfs.wvlRange = val;
         end
-        
+        %% set pyramid phase mask
+        function set.pyrMask(pwfs,val)
+            pwfs.pyrMask = val;
+        end
          %% Get flux
         function out = flux(pwfs)
             n = size(pwfs.camera.frame,1)/pwfs.binning;

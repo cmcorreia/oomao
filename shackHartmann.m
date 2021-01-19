@@ -1356,7 +1356,7 @@ classdef shackHartmann < hgsetget
                 j0x = [ones(1,5) ones(1,5)*2 ones(1,5)*3 ones(1,5)*4 ones(1,5)*5]; % x stencil col subscript
                 i0y = i0x; % y stencil row subscript
                 j0y = j0x; % y stencil col subscript
-                s0x = [-[1/8 5/8 1/2 5/8 1/8] zeros(1,15) [1/8 5/8 1/2 5/8 1/8]]/osFactor; % x stencil weight
+                s0x = [-[1/16 3/16 1/2 3/16 1/16] zeros(1,15) [1/16 3/16 1/2 3/16 1/16]]*(1/dsa); % x stencil weight
                 s0y = -[ 1 -1 1.5 -1.5 2 -2 1.5 -1.5 1 -1]/osFactor; % y stencil weight
                 s0y = reshape(s0x,5,5)';
                 s0y = s0y(:)';
@@ -2405,8 +2405,8 @@ classdef shackHartmann < hgsetget
             % os stands for overSampling. Can be 1 or 2.
             % If os=1, reconstructionGrid pitch = subaperturePitch,
             % if os=2, reconstructionGrid pitch = subaperturePitch/2
-            if nargin == 0
-                val = get.validActuator(obj);
+            if os == 1
+                val = obj.validActuator();
             elseif os ==2
                 nElements            = os*obj.lenslets.nLenslet+1; % Linear number of lenslet+actuator
                 validLensletActuator = zeros(nElements);

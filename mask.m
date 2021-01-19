@@ -35,7 +35,7 @@ classdef mask < handle
     m = mask(4,256,'rotation',[0.3 1]*pi/4);
     subplot(2,3,3)
     imagesc(m)
-    title('Rotaded edge phase mask')
+    title('Rotated edge phase mask')
     axis off
     % rooftop mask
     m = mask(4,256,'rooftop',[50 0]);
@@ -44,22 +44,31 @@ classdef mask < handle
     title('Rooftopped phase mask')
     axis off
     % facet output angle
-    alpha = [1 1 1 1]*pi/2 + 1i*[0 0.0 0.0 0.2]*pi/2;
+    alpha = [1 1 1 0.5]*pi/2 + 1i*[0 0.0 0.0 0.0]*pi/2;
     m = mask(4,256,'alpha',alpha);
     subplot(2,3,5)
     imagesc(m)
-    title('Output-angle phase mask')
+    title('Radial Output-angle P.M.')
     axis off
-    % edgewidth
-    m = mask(4,256,'edgeWidth',[10 0]);
+    
+    % facet output angle
+    alpha = [1 1 1 1]*pi/2 + 1i*[0 0.0 0.0 0.9]*pi/2;
+    m = mask(4,256,'alpha',alpha);
     subplot(2,3,6)
     imagesc(m)
-    title('Edge-width phase mask')
+    title('Azimuthal Output-angle P.M.')
     axis off
+%     % edgewidth
+%     m = mask(4,256,'edgeWidth',[10 0]);
+%     subplot(2,3,6)
+%     imagesc(m)
+%     title('Edge-width phase mask')
+%     axis off
 
     figs(gca,'pwfsPhaseMasIndividualDefects')
     %% all effects at once
     figure(2)
+    alpha = [1 1 1 0.8]*pi/2 + 1i*[0 0.0 0.0 0.2]*pi/2;
     m = mask(4,256,'edgeWidth',[10 0], 'alpha',alpha, 'rooftop',[50 0], 'rotation',[0.3 1]*pi/4,'centrePos',[-10 20]);
     imagesc(m)
     axis square
@@ -135,7 +144,7 @@ classdef mask < handle
             
             paramName = 'type';
             validationFcn = @(x) validateattributes(x,{'char'},{'nonempty'});
-            addOptional(p,paramName,'pyramid',validationFcn);
+            addOptional(p,paramName,'pyramidIntersectPlanes',validationFcn);
             p.parse(nFaces,resolution,varargin{:})
             
             
@@ -164,6 +173,8 @@ classdef mask < handle
             obj.edgeWidth   = p.Results.edgeWidth;
             obj.rooftop     = p.Results.rooftop;
             switch obj.type
+                case 'pyramidIntersectPlanes'
+                    pyramidIntersectPlanes(obj, obj.centrePos, obj.alpha, obj.rotation, obj.rooftop)
                 case 'pyramid'
                     pyramid(obj, obj.centrePos, obj.alpha, obj.edgeWidth, obj.rotation, obj.rooftop)
                 case 'pyramidSLM'
@@ -203,6 +214,63 @@ classdef mask < handle
             % See also: imagesc
             imagesc(obj.phaseMask)
         end
+        
+          %% Set the DEFAULT 4-sided pyramid mask
+        function obj = pyramidIntersectPlanes(obj, centrePos, alpha, rotation, rooftop)
+            if ~exist('centrePos','var') || isempty(centrePos)
+                cx = 0;
+                cy = 0;
+            else
+                cx = centrePos(1) - obj.resolution(1)/2+0.5;
+                cy = centrePos(2) - obj.resolution(2)/2+0.5;
+            end
+            
+            
+            if ~exist('rooftop','var') || isempty(rooftop)
+                rooftop = [0 0];
+            end
+            if isscalar(alpha)
+                realAlpha = ones(1,4)*alpha;
+            else
+                realAlpha = alpha;
+            end
+            % Complex alpha for PYR surface slope error in 2 directions...
+            imagAlpha = imag(realAlpha);
+            realAlpha = real(realAlpha);
+            
+            if ~exist('rotation','var') || isempty(rotation)
+                rotation = [0 0];
+            end
+            if isscalar(rotation)
+                r1 = rotation/(pi/4);
+                r2 = rotation/(pi/4);
+            else
+                r1 = rotation(1)/(pi/4);
+                r2 = rotation(2)/(pi/4);
+            end
+            
+            [fx,fy] = freqspace(obj.resolution,'meshgrid');
+            fx0 = fx.*floor(obj.resolution(1)/2)-cx;
+            fy0 = fy.*floor(obj.resolution(2)/2)-cy;
+            
+            fx = fx0 +r1*fy0;
+            fy = fy0 -r2*fx0;
+            
+            planes(:,:,1) = -realAlpha(1).*(fx+fy) + -imagAlpha(1).*(-fx+fy);
+            planes(:,:,2) = -realAlpha(2).*(fx-fy) + -imagAlpha(2).*(fx+fy);
+            planes(:,:,3) = -realAlpha(3).*(-fx-fy) + -imagAlpha(3).*(fx-fy);
+            planes(:,:,4) = -realAlpha(4).*(-fx+fy) + -imagAlpha(4).*(-fx-fy);
+            pyp = min(planes,[],3);
+            
+            % apply rooftop
+            pyp = pyp + rooftop(1);
+            pyp(pyp >0) = 0;
+            pym = exp(1i.*pyp);
+            
+            obj.phaseMask = pyp;
+            obj.theMask = fftshift(pym)./sum(abs(pym(:)));
+        end
+        
         %% Set the DEFAULT 4-sided pyramid mask
         function obj = pyramid(obj, centrePos, alpha, edgeWidth, rotation, rooftop)
             if ~exist('centrePos','var') || isempty(centrePos)

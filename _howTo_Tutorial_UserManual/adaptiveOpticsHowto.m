@@ -83,8 +83,8 @@ science = source('wavelength',photometry.H);
 % illuminated subaperture and a fully illuminated aperture
 nLenslet = 10;
 d = tel.D/nLenslet;
-%wfs = shackHartmann(nLenslet,nPx,0.5);
-wfs = pyramid(nLenslet,nPx,'modulation',5); % increase modulation to avoid loss of performance due to small linear range
+wfs = shackHartmann(nLenslet,nPx,0.5);
+%wfs = pyramid(nLenslet,nPx,'modulation',5); % increase modulation to avoid loss of performance due to small linear range
 %wfs = pyramid(nLenslet,nPx,'modulation',5, 'src', ngs,'tel',tel,'minLightRatio', 0.05);
 %%
 % Propagation of the calibration source to the WFS through the telescope
@@ -261,14 +261,19 @@ axis equal tight
 colorbar
 snapnow
 %%
+zern = zernike(2:10,tel.D,'resolution',tel.resolution,'pupil',tel.pupil);
+%%
 % Closed loop integrator gain:
 loopGain = 0.5;
 gain_pol = 0.9;
 %%
 % closing the loop with an integrator controller 
-nIteration = 200;
+nIteration = 1000;
 total  = zeros(1,nIteration);
 residue = zeros(1,nIteration);
+totalProj = zeros(zern.nMode,nIteration);
+resProj = zeros(zern.nMode,nIteration);
+
 tic
 for kIteration=1:nIteration
     % Propagation throught the atmosphere to the telescope, +tel means that
@@ -279,6 +284,9 @@ for kIteration=1:nIteration
     turbPhase = ngs.meanRmPhase;
     % Variance of the atmospheric wavefront
     total(kIteration) = var(ngs);
+    % Projection onto Zernike Modes
+    zern\turbPhase(:);
+    totalProj(:,kIteration) = zern.c;
     % Propagation to the WFS
     if strcmp(wfsModel,'geom')
         ngs=ngs*dm*wfsG;
@@ -287,6 +295,10 @@ for kIteration=1:nIteration
     end
     % Variance of the residual wavefront
     residue(kIteration) = var(ngs);
+        % Projection onto Zernike Modes
+    zern\ngs.meanRmPhase(:);
+    resProj(:,kIteration) = zern.c;
+    
     % Computing the DM residual coefficients
     if strcmp(wfsModel,'geom')
         residualDmCoefs = commandMatrix*wfsG.slopes;
@@ -329,11 +341,35 @@ varTempo    = phaseStats.closedLoopVariance(atm, tel.samplingTime,0*tel.sampling
 marechalStrehl_lsq_theoretical = 100*exp(-varFit-varAlias-varTempo)
 
 figure(12)
-text(0.5,1,['SR (Marechal approx):' num2str(marechalStrehl_lsq_theoretical) '%'])
-text(0.5,0.9,['Empirical (Marechal approx):' num2str(...
+text(0.5,1,['Theoretical SR (Marechal approx):' num2str(marechalStrehl_lsq_theoretical) '%'])
+text(0.5,0.9,['Empirical SR (Marechal approx):' num2str(...
     100*exp(-(mean(rmsMicron(residue(50:end)))*1e-6/ngs.wavelength*2*pi)^2*(atm.wavelength/science(1).wavelength)^2)) '%'])
 ylim([0 1])
 return
+
+%% RTF analysis
+
+% Discrete-time analysis
+z = tf('z',tel.samplingTime);
+hOl = 1/z*loopGain/(1-1/z);
+[MAG, PH, w] = bode(feedback(1,hOl));
+loglog(w/2/pi, squeeze(MAG).^2)
+hold on
+
+% telemetry data analysis
+Fs = 1/tel.samplingTime;
+freq = 0:Fs/nIteration:Fs/2;
+iMode = 7;
+rtf = abs(fft(resProj(iMode,:))).^2./abs(fft(totalProj(iMode,:))).^2;
+loglog(freq, rtf(1:nIteration/2+1))
+
+xlabel('Temporal Frequency \nu [Hz]')
+ylabel('a.u.')
+title('empirical and theoretical RTFs')
+pbaspect([1.618 1 1])
+grid on
+set(gca,'FontSize',15)
+
 %% WFS noise
 % Noise can be added to the wavefront sensor but first we need to set the
 % star magnitude.

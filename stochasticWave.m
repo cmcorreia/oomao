@@ -26,9 +26,11 @@ classdef stochasticWave < handle
         % wave amplitude
         amplitude;
         % wave phase        
-        phase;   
+        phase;
+        % unmasked wave phase
+        phaseUnmasked;
         % reset the wave phase 
-        resetPhase
+        %resetPhase
         % intensity
         intensity;
         % buffer sequence
@@ -78,6 +80,10 @@ classdef stochasticWave < handle
             obj.p_amplitude = bsxfun( @times, obj.p_amplitude , val);
         end
     
+        %% Get/Set phaseUnmasked
+        function out = get.phaseUnmasked(obj)
+            out = obj.p_phase;
+        end
         %% Get/Set phase
         function out = get.phase(obj)
             out = obj.p_phase;
@@ -91,13 +97,13 @@ classdef stochasticWave < handle
                     obj.phaseVar = zeros(obj.bufferLength,length(buf));
                     obj.kBufSeq = 0;
                 end
-                if length(buf)>size(obj.phaseVar,2)
+                if lengt(buf)>size(obj.phaseVar,2)
                     obj.phaseVar = repmat( obj.phaseVar , 1 , length(buf));
                 end
                 obj.kBufSeq = obj.kBufSeq + 1;
                 obj.phaseVar(obj.kBufSeq,:) = buf;
             end
-%             if ~isempty(obj.p_bufSeq)
+            %             if ~isempty(obj.p_bufSeq)
 %                 if obj.p_bufSeq(obj.kBufSeq)
 %                     obj.nSample = obj.nSample + 1;
 %                     obj.samples(obj.nSample) = std(obj);
@@ -114,7 +120,9 @@ classdef stochasticWave < handle
 %                 obj.cumImage = obj.cumImage + obj.image;
 %             end
         end
-        function set.resetPhase(obj,val)
+        
+        %% reset phase to predefined value val
+        function resetPhase(obj,val)
             obj.p_phase = val;
         end
         

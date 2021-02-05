@@ -97,7 +97,7 @@ classdef stochasticWave < handle
                     obj.phaseVar = zeros(obj.bufferLength,length(buf));
                     obj.kBufSeq = 0;
                 end
-                if lengt(buf)>size(obj.phaseVar,2)
+                if length(buf)>size(obj.phaseVar,2)
                     obj.phaseVar = repmat( obj.phaseVar , 1 , length(buf));
                 end
                 obj.kBufSeq = obj.kBufSeq + 1;

@@ -34,6 +34,7 @@ classdef lensletArray < handle
 
         % amount of opticalAberration on each lenslet to produce an aberrated spot
         opticalAberration;
+        
     end
     
     properties (SetObservable=true)
@@ -52,6 +53,10 @@ classdef lensletArray < handle
         nyquistSampling;
         % the lenslet field of view given in diffraction fwhm units
         fieldStopSize;
+        % offsets in fraction of the telescope diameter
+        offset;
+        % rotation in radians
+        rotation
     end
     
     properties (Dependent, SetAccess=private)
@@ -59,6 +64,7 @@ classdef lensletArray < handle
         nLensletImagePx;
         % the total # of pixel per imagelet
         nLensletsImagePx;
+
     end
 
     properties (Access=private)
@@ -69,8 +75,9 @@ classdef lensletArray < handle
         imageHandle;
         zoomTransmittance;
         log;
+        % vector of offsets
+        p_offset = [0;0;0];
     end
-
     methods
 
         %% Constructor
@@ -135,6 +142,55 @@ classdef lensletArray < handle
             nLensletsImagePx = obj.nLenslet.*obj.nLensletImagePx;
         end
 
+        %% Get and Set rotation
+        function set.rotation(obj,val)
+            if isempty(val)
+                obj.p_offset(3,:) = 0;
+            else
+                obj.p_offset(3,:) = val;
+            end
+            %if length(obj.rotation) == 1 && length(obj.rotation) < obj.nSrc
+            %    obj.rotation = repmat(obj.rotation,1,obj.nSrc);
+            %end
+        end
+        
+        function out = get.rotation(obj)
+            out = obj.p_offset(3,:);
+        end
+        %% Get and Set Offsets
+        function set.offset(obj,val)
+            % check offset's magnitude
+%             if any(abs(val)) > 1
+%                 warning('Offsets larger than a sub-aperture not supported. Truncating the offsets to 1')
+%                 val(val > 1) = 1;
+%                 val(val < -1) = -1;
+%             end
+            % check offset's size consistency
+            if any(size(val)) == 1
+                if size(val,1) >  size(val,2)
+                    val = val';
+                end
+            end
+            if isscalar(val) % create a 2x1 vector
+                offset_ = [1;1]*val;
+            elseif size(val,2) >  size(val,1)
+                if size(val,2) == 2 % if a 1x2 vector, transpose
+                    offset_ =val';
+                elseif size(val,1) == 1 % if a 1 x N vector, replicate along the other direction
+                    offset_ = repmat(val, 2,1);
+                else
+                    offset_ = val;
+                end
+            end
+            obj.p_offset = offset_;
+            obj.p_offset(3,size(obj.p_offset,2)) = 0;
+            %if size(obj.offset,2) == 1 && size(obj.offset,2) < obj.nSrc
+            %    obj.offset = repmat(obj.offset,1,obj.nSrc);
+            %end
+        end
+        function out = get.offset(obj)
+            out = obj.p_offset(1:2,:);
+        end
         %% Nyquist sampling
         function out = get.nyquistSampling(obj)
             out = obj.p_nyquistSampling;
@@ -234,7 +290,36 @@ classdef lensletArray < handle
             else
                 src = src_in;
             end
-                
+            
+            % apply any offsets
+            if ~isempty(obj.offset) && any(obj.offset(:) ~= 0) || ~isempty(obj.rotation) && any(obj.rotation(:) ~= 0)
+                buf = src.phaseUnmasked;
+                [nx, ny, nz] = size(src(1).phaseUnmasked);
+                R = 0.5;
+                [x0,y0] = meshgrid(linspace(-R,R,nx), linspace(-R,R,ny));
+                nSrc_ = numel(src);
+                phasei = zeros(nx, ny, nz);
+                for iSrc = 1:nSrc_
+                    if size(obj.offset,2) >= iSrc                        
+                        xi = x0 - obj.offset(1,iSrc);
+                        yi = y0 - obj.offset(2,iSrc);
+                        ri = obj.rotation(iSrc);
+                        for kWave = 1:nz
+                            if ri ~= 0
+                                phasei(:,:,kWave) = rotate(src(iSrc).phaseUnmasked(:,:,kWave),ri*180/pi);
+                                phasei(:,:,kWave) = interp2(x0,y0,phasei(:,:,kWave),xi,yi,'cubic',0);
+                            else
+                                phasei(:,:,kWave) = interp2(x0,y0,src(iSrc).phaseUnmasked(:,:,kWave),xi,yi,'cubic',0);
+                            end
+                        end
+                        src(iSrc).resetPhase(phasei);
+                    else
+                        src(iSrc).resetPhase(buf);
+                    end
+                end
+            end
+
+            
             val = src.catWave; % get complex amplitudes
             if ndims(src)==3 % if src object array is 3D then it is an LGS hence collapse the 3D imagelets 
                 obj.sumStack = true;
@@ -449,6 +534,11 @@ classdef lensletArray < handle
                 wavePrgted = mean(wavePrgted,3);
             end
             obj.sumStack = false;
+            
+            % reset phase from any offsets 
+            if ~isempty(obj.offset) && any(obj.offset(:) ~= 0) || ~isempty(obj.rotation) && any(obj.rotation(:) ~= 0)
+                src(iSrc).resetPhase(buf);
+            end
         end
         
         function relay(obj,src)

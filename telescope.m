@@ -109,6 +109,20 @@ classdef telescope < telescopeAbstract
             obj.phaseListener = [];
         end
         
+        
+        function embed(obj,nPts)
+            %% EMBED the telescope on a nPts computational domain and update tel.D
+            if nPts > obj.resolution
+                nExt = (nPts-obj.resolution)/2;
+                if iseven(nExt)
+                    obj.pupil = padarray(obj.pupil,[nExt nExt],0,'both');
+                    obj.D = nPts/obj.resolution*obj.D;
+                    obj.resolution = nPts;
+                else
+                    'CANNOT EMBED DUE TO FRACTIONAL NUMBER OF PIXELS'
+                end
+            end
+        end
         function display(obj)
             %% DISPLAY Display object information
             %

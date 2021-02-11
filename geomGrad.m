@@ -14,7 +14,7 @@ classdef geomGrad < handle
     end
     properties (SetObservable=true)
         % measurements
-        slopes=0;
+        slopes=0; %units of Shannon-sampled pixels, i.e. \lambda/2/d (\lambda - WFS wavelength, d-size of the sub-aperture in m)
         % gradient matrix
         gradOp;
     end

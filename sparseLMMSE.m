@@ -94,8 +94,8 @@ classdef sparseLMMSE < handle
         % flag for computing the rotation matrix
         rotatedFrame;
         % rotator: Matrix that rotates the slopes from the original x-y
-        % referential to a x'-y' per sub-aperture (depends on the LLT)
-        rotationMatrix;
+        % referential to a x'-y' per sub-aperture parallel and orthogonal to the LGS elongation (whose sub-aperture-dependent orientation depends on the LLT)
+        slopeRotationMatrix;
         
         % discrete gradient operator (for the SH WFS)
         Gamma;
@@ -248,7 +248,7 @@ classdef sparseLMMSE < handle
             if inputs.Results.rotatedFrame
                 setRotationMatrix(obj);
             else
-                obj.rotationMatrix = [];
+                obj.slopeRotationMatrix = [];
             end
             setGamma(obj);
             setH(obj);
@@ -325,8 +325,11 @@ classdef sparseLMMSE < handle
             obj.phaseMask = gridMask;
         end
         
-        %% set a rotation matrix
-        function setRotationMatrix(obj)
+        %% set a rotation matrix for the case where the slopes are computed parallel and orthogonal to the LGS spot elongation. 
+        % this has only to do with the slope referential and not any
+        % possible rotation of lenslet array with respect to a common
+        % reference frame
+        function setSlopeRotationMatrix(obj)
             rTheta = cell(obj.nGuideStar,1);
             for kGs = 1:obj.nGuideStar
                 xL = obj.guideStar(kGs).viewPoint(1);
@@ -343,9 +346,8 @@ classdef sparseLMMSE < handle
                 rTheta{kGs} = [diag(cos(oe)) diag(sin(oe)); -diag(sin(oe)) diag(cos(oe)) ];
                 %rTheta{kGs} = rTheta{kGs}
             end
-            obj.rotationMatrix = blkdiag(rTheta{:});
+            obj.slopeRotationMatrix = blkdiag(rTheta{:});
         end
-        
         
         %% set the sparse gradient matrix using a 3x3 stencil
         function setGamma(obj)
@@ -364,7 +366,7 @@ classdef sparseLMMSE < handle
             obj.Gamma = cell(obj.nGuideStar,1);
             vL = repmat(obj.wfs.validLenslet(:),2,1);
             for kGs = 1:obj.nGuideStar
-                if ~isempty(obj.rotationMatrix)
+                if ~isempty(obj.slopeRotationMatrix)
                     obj.Gamma{kGs} = p_Gamma(:,...
                         obj.phaseMask(phaseMask_(:),kGs));
                 else
@@ -373,14 +375,20 @@ classdef sparseLMMSE < handle
                 end
             end
             obj.Gamma = blkdiag(obj.Gamma{:});
+%             if any(obj.wfs.lenslets.rotation)
+%                 derot = setSlopeReferenceFrameDerotator(obj);
+%                 obj.Gamma = derot*obj.Gamma;
+%                 obj.Gamma = obj.Gamma(obj.slopesMask(obj.slopesMask(:)),:);
+%             end
+            
             % Model the rotated slopes
-            if ~isempty(obj.rotationMatrix)
-                obj.Gamma = obj.rotationMatrix*obj.Gamma;
+            if ~isempty(obj.slopeRotationMatrix)
+                obj.Gamma = obj.slopeRotationMatrix*obj.Gamma;
                 obj.Gamma = obj.Gamma(obj.slopesMask(obj.slopesMask(:)),:);
             end
             obj.GammaT = obj.Gamma';
         end
-
+        
         %% set propagator H from GS to WFS
         function setH(obj)
             if obj.overSampling == 2
@@ -388,14 +396,26 @@ classdef sparseLMMSE < handle
             elseif obj.overSampling == 4
                 [x,y] = meshgrid(linspace(-.5,.5,4*obj.nSub+1)*obj.D);
             end
-            
             grid = x+y*1i;
             p_H = cell(obj.nGuideStar,obj.atmModel.nLayer);
             for kGs = 1:obj.nGuideStar
-                a = p_bilinearSplineInterpMat(obj,...
-                    obj.guideStar(1,kGs,1),...
-                    grid(obj.phaseMask(:,kGs)),...
-                    0);
+                if (any(obj.wfs.lenslets.rotation) || any(obj.wfs.lenslets.offset(:))) && kGs <= size(obj.wfs.lenslets.rotation,2)
+                    [x_,y_] = tools.rotateDM(x,y,obj.wfs.lenslets.rotation(kGs));
+                    if any(obj.wfs.lenslets.offset)
+                        x_ = x_ - obj.wfs.lenslets.offset(1,kGs)*obj.D;
+                        y_ = y_ - obj.wfs.lenslets.offset(2,kGs)*obj.D;
+                    end
+                    grid_ = x_+y_*1i;
+                    a = p_bilinearSplineInterpMat(obj,...
+                        obj.guideStar(1,kGs,1),...
+                        grid_(obj.phaseMask(:,kGs)),...
+                        0);
+                else
+                    a = p_bilinearSplineInterpMat(obj,...
+                        obj.guideStar(1,kGs,1),...
+                        grid(obj.phaseMask(:,kGs)),...
+                        0);
+                end
                 p_H(kGs,:) = a;
             end
             obj.H = cell2mat(p_H);

@@ -221,8 +221,8 @@ classdef mask < handle
                 cx = 0;
                 cy = 0;
             else
-                cx = centrePos(1) - obj.resolution(1)/2-0.5;
-                cy = centrePos(2) - obj.resolution(2)/2-0.5;
+                cx = centrePos(1) - (obj.resolution(1)/2+0.5);
+                cy = centrePos(2) - (obj.resolution(2)/2+0.5);
             end
             
             

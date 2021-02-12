@@ -53,7 +53,7 @@ classdef lensletArray < handle
         nyquistSampling;
         % the lenslet field of view given in diffraction fwhm units
         fieldStopSize;
-        % offsets in fraction of the telescope diameter
+        % offsets in fraction of the telescope diameter (i.e. units of 1/D)
         offset;
         % rotation in radians
         rotation
@@ -147,6 +147,7 @@ classdef lensletArray < handle
             if isempty(val)
                 obj.p_offset(3,:) = 0;
             else
+                obj.p_offset(3,length(val)) = 0;
                 obj.p_offset(3,:) = val;
             end
             %if length(obj.rotation) == 1 && length(obj.rotation) < obj.nSrc

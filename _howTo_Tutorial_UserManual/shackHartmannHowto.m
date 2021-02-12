@@ -91,6 +91,7 @@ wfs = shackHartmann(20,120,0.5);
 % pixels per subaperture, the pixelSize=lambda/D
  
 wfs.lenslets.fieldStopSize = 6;
+wfs.lenslets.nyquistSampling = 0.5;
 % initialisation
 ngs = ngs.*tel*wfs;
 wfs.INIT
@@ -107,6 +108,8 @@ binFactor = max(1,2*wfs.lenslets.fieldStopSize/wfs.lenslets.nyquistSampling/(wfs
 lo2DInMas = ngs.wavelength/(2*tel.D/wfs.lenslets.nLenslet)*constants.radian2mas;
 loDInMas = ngs.wavelength/(tel.D/wfs.lenslets.nLenslet)*constants.radian2mas;
 pixelSizeInMas = lo2DInMas*binFactor;
+
+fprintf('Subap FoV is %4.0f mas\n' , lo2DInMas*wfs.lenslets.fieldStopSize/wfs.lenslets.nyquistSampling)
 fprintf('Pixel size is %4.0f mas\n' , pixelSizeInMas)
 fprintf('Pixel size is %4.2f lambda/D \n' , pixelSizeInMas/loDInMas)
 

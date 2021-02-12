@@ -135,7 +135,7 @@ mmse = sparseLMMSE(wfs,tel,atm,lgsAst,...
 %
 % iterative Toeplitz reconstructor. Produces a phase estimate in teh pupil
 % plane in the direction of the mmseStar
-slmmse = slopesLinearMMSE(wfs,tel,atm,lgsAst,'mmseStar',[ngs ngs]);
+slmmse = slopesLinearMMSE(wfs,tel,atm,lgsAst,'mmseStar',[ngs]);
 
 % Alternative call
 % noiseVar = 1e-14;

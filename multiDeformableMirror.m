@@ -252,8 +252,10 @@ classdef multiDeformableMirror < handle
                     obj.dms{kDm}.validActuator = val{kDm};
                 end
             else
-                validActuators = logical(abs(obj.dms{kDm}.modes.actuatorCoord)<(obj.tel.diameterAt(obj.dms{kDm}.zLocation)/2)*1.2);
-                obj.dms{kDm}.validActuator = validActuators;
+                for kDm = 1:obj.nDm
+                    validActuators_ = logical(abs(obj.dms{kDm}.modes.actuatorCoord)<(obj.tel.diameterAt(obj.dms{kDm}.zLocation)/2)*1.01);
+                    obj.dms{kDm}.validActuator = validActuators_;
+                end
             end
         end
         function calibMultiDmCell = calibrationMultiDm(obj,sensor,srcs,calibDmStroke,steps,varargin)

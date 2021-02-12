@@ -1121,6 +1121,9 @@ classdef shackHartmann < hgsetget
             %xRightLim = xLeftLim + dSubap;
             yLeftLim = xLeftLim';
             %yRightLim = xRightLim';
+            
+            xLeftLim = xLeftLim + obj.lenslets.offset(1,1);
+            yLeftLim = yLeftLim + obj.lenslets.offset(2,1);
             figure(345), hold on
             u = linspace(-tel.D/2, tel.D/2,tel.resolution);
             %gridMask = wfs.validLensletSamplingMask(nPxSubap);
@@ -1134,6 +1137,21 @@ classdef shackHartmann < hgsetget
             %scatter(real(pos12), imag(pos12),'g')
             pos22 = xLeftLim(obj.validLenslet)+dSubap + 1i*(yLeftLim(obj.validLenslet)+dSubap);
             %scatter(real(pos22), imag(pos22),'k')
+            
+            % rotate the coordinates
+%             angleRotationInRad = obj.lenslets.rotation(1);
+%             pos11 = xLeftLim(obj.validLenslet) + 1i*yLeftLim(obj.validLenslet);
+%             [x,y]=lamTools.rotateDM(real(pos11),imag(pos11),angleRotationInRad);
+%             pos11 = x + 1i*y;
+%             scatter(real(pos11), imag(pos11))
+%             pos21 = xLeftLim(obj.validLenslet)+dSubap*cos(angleRotationInRad) + 1i*yLeftLim(obj.validLenslet)-dSubap*sin(angleRotationInRad);
+%             scatter(real(pos21), imag(pos21),'r')
+%             pos12 = xLeftLim(obj.validLenslet)+dSubap*sin(angleRotationInRad) + 1i*(yLeftLim(obj.validLenslet)+dSubap*cos(angleRotationInRad));
+%             scatter(real(pos12), imag(pos12),'g')
+%             pos22 = xLeftLim(obj.validLenslet)+dSubap + 1i*(yLeftLim(obj.validLenslet)+dSubap);
+
+            
+            
             fill(real([pos11 pos12 pos21  pos22])', imag([pos11 pos12 pos22 pos21])','r','FaceColor','none')
             if nargin == 3
                 scatter(real(dm.modes.actuatorCoord(dm.validActuator)), imag(dm.modes.actuatorCoord(dm.validActuator)),'MarkerFaceColor','r')

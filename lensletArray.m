@@ -183,8 +183,15 @@ classdef lensletArray < handle
                     offset_ = val;
                 end
             end
-            obj.p_offset = offset_;
-            obj.p_offset(3,size(obj.p_offset,2)) = 0;
+            obj.p_offset(1:2,:) = offset_;
+            rotation_ =  obj.p_offset(3,:);
+            if any(rotation_) %rotation already set
+                if length(rotation_) < size(obj.p_offset,2)
+                     obj.p_offset(3,size(obj.p_offset,2)) = 0;
+                end
+            else
+                 obj.p_offset(3,size(obj.p_offset,2)) = 0;
+            end               
             %if size(obj.offset,2) == 1 && size(obj.offset,2) < obj.nSrc
             %    obj.offset = repmat(obj.offset,1,obj.nSrc);
             %end

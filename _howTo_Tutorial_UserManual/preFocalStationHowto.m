@@ -49,7 +49,7 @@ atm = atmosphere(photometry.V,0.15,30,...
 % * the field of view either in arcminute or arcsecond
 % * the pupil sampling or resolution in pixels
 % * the atmopheric layer motion sampling time [s]
-nPx = 60;
+nPx = 600;
 tel = telescope(3.6,...
     'fieldOfViewInArcMin',2.5,...
     'resolution',nPx,...
@@ -380,6 +380,8 @@ phaseAfter = catPhase(lgsAst);
 figure(10)
 imagesc([phaseBefore; phaseAfter])
 
+    
+    
 %%
 wfs.lenslets.offset = 0;
 wfs.lenslets.rotation = 0;

@@ -1112,7 +1112,7 @@ classdef shackHartmann < hgsetget
                 makehgtform('translate',-[(n-1)/2,(n-1)/2,0]/n,'scale',1/n,'translate',[1,1,0]*2),varargin{:});
         end
         %%
-        function subaperturesDisplay(obj,tel,dm)
+        function subaperturesDisplay(obj,tel,dm,wfsIndex,plotWfsCamera)
             nSubap = size(obj.validLenslet,1);
             nPxSubap = tel.resolution/nSubap;
             
@@ -1122,13 +1122,27 @@ classdef shackHartmann < hgsetget
             yLeftLim = xLeftLim';
             %yRightLim = xRightLim';
             
-            xLeftLim = xLeftLim + obj.lenslets.offset(1,1);
-            yLeftLim = yLeftLim + obj.lenslets.offset(2,1);
-            figure(345), hold on
+            if ~(exist('wfsIndex','var') && ~isempty(wfsIndex))
+                wfsIndex = 1;
+            end
+            if ~(exist('plotWfsCamera','var') && ~isempty(plotWfsCamera))
+                plotWfsCamera = 0;
+            end
+            xLeftLim = xLeftLim;% + obj.lenslets.offset(1,wfsIndex)*tel.D;
+            yLeftLim = yLeftLim;% + obj.lenslets.offset(2,wfsIndex)*tel.D;
+            %figure, hold on
             u = linspace(-tel.D/2, tel.D/2,tel.resolution);
             %gridMask = wfs.validLensletSamplingMask(nPxSubap);
             %imagesc(u,u,gridMask(1:end-1,1:end-1))
-            imagesc(u,u,tel.pupil)
+            if ~plotWfsCamera
+                %imagesc(u,u,tel.pupil)
+            else
+                u = linspace(-tel.D/2, tel.D/2,size(obj.camera.frame,2));
+                angleRotationInRad = obj.lenslets.rotation(wfsIndex);
+                im = tools.rotateIm(obj.camera.frame, -angleRotationInRad*180/pi);
+                imagesc(u,u,im)
+                colormap(pink)
+            end
             pos11 = xLeftLim(obj.validLenslet) + 1i*yLeftLim(obj.validLenslet);
             %scatter(real(pos11), imag(pos11))
             pos21 = xLeftLim(obj.validLenslet)+dSubap + 1i*yLeftLim(obj.validLenslet);
@@ -1139,20 +1153,23 @@ classdef shackHartmann < hgsetget
             %scatter(real(pos22), imag(pos22),'k')
             
             % rotate the coordinates
-%             angleRotationInRad = obj.lenslets.rotation(1);
-%             pos11 = xLeftLim(obj.validLenslet) + 1i*yLeftLim(obj.validLenslet);
-%             [x,y]=lamTools.rotateDM(real(pos11),imag(pos11),angleRotationInRad);
-%             pos11 = x + 1i*y;
-%             scatter(real(pos11), imag(pos11))
-%             pos21 = xLeftLim(obj.validLenslet)+dSubap*cos(angleRotationInRad) + 1i*yLeftLim(obj.validLenslet)-dSubap*sin(angleRotationInRad);
-%             scatter(real(pos21), imag(pos21),'r')
-%             pos12 = xLeftLim(obj.validLenslet)+dSubap*sin(angleRotationInRad) + 1i*(yLeftLim(obj.validLenslet)+dSubap*cos(angleRotationInRad));
-%             scatter(real(pos12), imag(pos12),'g')
-%             pos22 = xLeftLim(obj.validLenslet)+dSubap + 1i*(yLeftLim(obj.validLenslet)+dSubap);
+            angleRotationInRad = obj.lenslets.rotation(wfsIndex);
+            pos11 = xLeftLim(obj.validLenslet) + 1i*yLeftLim(obj.validLenslet);
+            [x,y]=lamTools.rotateDM(real(pos11),imag(pos11),angleRotationInRad);
+            pos11 = x + 1i*y;
+            %scatter(real(pos11), imag(pos11)), hold on
+            dd = dSubap*(cos(angleRotationInRad) + 1i*sin(angleRotationInRad));
+            pos21 = pos11 + dd;
+            %scatter(real(pos21), imag(pos21),'r')
+            dd = dSubap*(-sin(angleRotationInRad) + 1i*cos(angleRotationInRad));
+            pos12 = pos11 + dd;
+            %scatter(real(pos12), imag(pos12),'g')
+            dd = dSubap*(cos(angleRotationInRad) + 1i*sin(angleRotationInRad));
+            pos22 = pos12 + dd;
+            %scatter(real(pos22), imag(pos22),'b')
 
-            
-            
-            fill(real([pos11 pos12 pos21  pos22])', imag([pos11 pos12 pos22 pos21])','r','FaceColor','none')
+            fill(real([pos11 pos12 pos22  pos21])' + obj.lenslets.offset(1,wfsIndex)*tel.D, ...
+                imag([pos11 pos12 pos22 pos21])'+obj.lenslets.offset(2,wfsIndex)*tel.D,'r','FaceColor','none','edgecolor','red')
             if nargin == 3
                 scatter(real(dm.modes.actuatorCoord(dm.validActuator)), imag(dm.modes.actuatorCoord(dm.validActuator)),'MarkerFaceColor','r')
             end

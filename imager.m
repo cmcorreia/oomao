@@ -119,6 +119,7 @@ classdef imager < detector
                 src_ = source.*obj.referenceFrame;
                 wavePrgted = propagateThrough(obj.imgLens,src_);
                 otf =  abs(wavePrgted);
+                otf =  otf/max(otf(:));
                 otf = mat2cell(otf,size(otf,1),size(otf,2)/nSrc*ones(1,nSrc));
                 nFrame = obj.exposureTime*obj.clockRate;
                 
@@ -143,6 +144,7 @@ classdef imager < detector
                     src_ = src_.*m_frame{kFrame};
                     wavePrgted = propagateThrough(obj.imgLens,src_);
                     otfAO =  abs(wavePrgted);
+                    otfAO =  otfAO/max(otfAO(:));
                     otfAO = mat2cell(otfAO,size(otfAO,1),size(otfAO,2)/nSrc*ones(1,nSrc));
                     
                     for kobj=1:nSrc

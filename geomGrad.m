@@ -28,6 +28,7 @@ classdef geomGrad < handle
     properties (Access=private)
         % vector of offsets
         p_offset = [0;0;0];
+        p_rotation = 0;
     end
     
     methods
@@ -54,8 +55,7 @@ classdef geomGrad < handle
             if isempty(val)
                 obj.p_offset(3,:) = 0;
             else
-                obj.p_offset(3,length(val)) = 0;
-                obj.p_offset(3,:) = val;
+                obj.p_rotation = val;
             end
             %if length(obj.rotation) == 1 && length(obj.rotation) < obj.nSrc
             %    obj.rotation = repmat(obj.rotation,1,obj.nSrc);
@@ -63,7 +63,7 @@ classdef geomGrad < handle
         end
         
         function out = get.rotation(obj)
-            out = obj.p_offset(3,:);
+            out = obj.p_rotation;
         end
         %% Get and Set Offsets
         function set.offset(obj,val)

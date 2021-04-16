@@ -400,11 +400,15 @@ classdef sparseLMMSE < handle
             p_H = cell(obj.nGuideStar,obj.atmModel.nLayer);
             for kGs = 1:obj.nGuideStar
                 if (any(obj.wfs.lenslets.rotation) || any(obj.wfs.lenslets.offset(:))) && kGs <= size(obj.wfs.lenslets.rotation,2)
-                    [x_,y_] = tools.rotateDM(x,y,obj.wfs.lenslets.rotation(kGs));
+                    %[x_,y_] = tools.rotateDM(x,y,obj.wfs.lenslets.rotation(kGs));
                     if any(obj.wfs.lenslets.offset)
-                        x_ = x_ - obj.wfs.lenslets.offset(1,kGs)*obj.D;
-                        y_ = y_ - obj.wfs.lenslets.offset(2,kGs)*obj.D;
+                        x_ = x - obj.wfs.lenslets.offset(1,kGs)*obj.D;
+                        y_ = y - obj.wfs.lenslets.offset(2,kGs)*obj.D;
+                    else
+                        x_ = x;
+                        y_ = y;
                     end
+                    [x_,y_] = tools.rotateDM(x_,y_,obj.wfs.lenslets.rotation(kGs));
                     grid_ = x_+y_*1i;
                     a = p_bilinearSplineInterpMat(obj,...
                         obj.guideStar(1,kGs,1),...

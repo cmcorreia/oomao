@@ -30,14 +30,14 @@ zenithAngle = 0;
 %
 %% ATMOSPHERE - overrides predifined ATMOSPHERE
 
-r0 = 0.1587;            % coherence lenght in meters at 0.5microns
-L0 = 100;                % Outer scale in meters
+r0              = 0.1587;   % coherence lenght in meters at 0.5microns
+L0              = 100;      % Outer scale in meters
 
 
 % Multi-layer atmosphere
-fractionalR0   = [0.5, 0.05, 0.1, 0.13, 0.08, 0.04, 0.1];
+fractionalR0    = [0.5, 0.05, 0.1, 0.13, 0.08, 0.04, 0.1];
 altitude        = (0:2:12)*1e3;
-windSpeed        = [10,5,20,5 10 10 10];
+windSpeed       = [10,5,20,5 10 10 10];
 windDirection   = [0,pi/2,pi/4, -pi/2, pi/3, 2/5*pi, 7/3*pi];
 
 
@@ -61,16 +61,16 @@ atm = atmosphere(photometry.V0,r0,L0,...
 
 
 %% TELESCOPE - overrides predifined TELESCOPE
-nOuterLenslet = 4;
-nInnerLenslet = 16;
-nL = nInnerLenslet + nOuterLenslet;% number of lenslets
-nPx  = 8;              % number of pixels per lenslet
-nRes = nInnerLenslet*nPx;          % resolution on the pupil plane (no of pixels)
-D    = 8;   % telescope primary mirror diameter
-d    = D/nL;            % lenslet pitch
-samplingFreq        = 500;  % WFS sampling time
-obstructionRatio    = 0.3;  % central obscuration ratio
-fieldOfViewInArcsec = 60;   %fieldOfViewInArcsec
+nOuterLenslet       = 4;
+nInnerLenslet       = 16;
+nL = nInnerLenslet + nOuterLenslet; % number of lenslets
+nPx                 = 8;            % number of pixels per lenslet
+nRes = nInnerLenslet*nPx;           % resolution on the pupil plane (no of pixels)
+D                   = 8;            % telescope primary mirror diameter
+d                   = D/nL;         % lenslet pitch
+samplingFreq        = 500;          % WFS sampling time
+obstructionRatio    = 0.3;          % central obscuration ratio
+fieldOfViewInArcsec = 60;           %fieldOfViewInArcsec
 
 tel = telescope(D,'resolution',nRes,...
     'obstructionRatio',obstructionRatio,'fieldOfViewInArcsec',fieldOfViewInArcsec,'samplingTime',1/samplingFreq);
@@ -112,10 +112,11 @@ ngs = source;
 
 
 %% Wavefront sensor
-wfs             = shackHartmann(nL,nRes,0.75);
-ngs.wavelength  = photometry.Na;
+wfs                     = shackHartmann(nL,nRes,0.75);
+ngs.wavelength          = photometry.Na;
 
 ngs = ngs.*tel*wfs;
+
 wfs.INIT;
 wfs.camera.photonNoise = false;
 +wfs;
@@ -214,9 +215,10 @@ end
 
 %% OFFSETS AND ROTATION
 % add a rotation in radians, one scalar per WFS
-wfs.lenslets.rotation = 0*-pi/2*ones(1,4);
+wfs.lenslets.rotation = -pi/4*ones(1,4);
+wfs.lenslets.rotation = 1*[pi/10 -pi/2 pi pi*0];
 % add an offset [x;y] per WFS in units of 1/D
-wfs.lenslets.offset = [1 -1 -1 1; 1 1 -1 -1]*0.25/nL;
+wfs.lenslets.offset = 1*[1 -1 -1 1; 1 1 -1 -1]*0.25/nL;
 
 
 
@@ -234,11 +236,39 @@ calibDm = calibration(dm,wfs,ngs,ngs.wavelength/8,nL+1,'cond',1e2);
 dm.coefs = eye(dm.nValidActuator)*ngs.wavelength/2/pi;
 wfsG.offset = wfs.lenslets.offset;
 wfsG.rotation = wfs.lenslets.rotation;
-wfsG.offset = wfs.lenslets.offset;
 
 ngs = ngs.*tel*dm*wfsG;
 Dgeom = wfsG.slopes*2*pi/ngs.wavelength;
 %calibDm.D = Dgeom;
+
+% %% SANITY-CHECK THAT THE WFS IMPLEMENT THE ROTATION + OFFSETS CORRECTLY
+% wfsG.rotation = 0*-pi/4*ones(1,4);
+% wfsG.offset = [1 -1 -1 1; 1 1 -1 -1]*0.25/nL;
+% zern = zernike(5,tel.D,'resolution',tel.resolution,'pupil',ones(tel.resolution));
+% %zern = zernike(5,tel.D,'resolution',tel.resolution,'pupil',abs(tel.pupil));
+% zern.c = ngs.wavelength/2/pi;
+% ngs = ngs.*zern*wfsG;
+% figure(1)
+% plot(wfsG.slopes)
+% hold on
+% 
+% zern = zernike(6,tel.D,'resolution',tel.resolution,'pupil',ones(tel.resolution));
+% %zern = zernike(5,tel.D,'resolution',tel.resolution,'pupil',abs(tel.pupil));
+% zern.c = ngs.wavelength/2/pi;
+% 
+% wfsG.rotation = 1*-pi/4*ones(1,4);
+% wfsG.offset = [1 -1 -1 1; 1 1 -1 -1]*0.25/nL;
+% ngs = ngs.*zern*wfsG;
+% figure(1)
+% plot(wfsG.slopes)
+% hold on
+% 
+% 
+% % zern = zernike(6,tel.D,'resolution',tel.resolution,'pupil',abs(tel.pupil));
+% % zern.c = ngs.wavelength/2/pi;
+% % ngs = ngs.*tel*zern;
+% % figure(2)
+% % imagesc(ngs.meanRmPhase)
 
 %% SPARSE MMSE
 % sparse-based tomographic reconstructor that explitely estimates the phase
@@ -280,6 +310,86 @@ sparseMmse = sparseLMMSE(wfs,tel,atm,lgsAst,...
 if useExplicitReconFromSparse
     [Rec,Left,Right] = sparseMmse.getReconstructionMatrix;
 end
+
+%% SANITY-CHECK THAT THE SPARSE-LMMSE IMPLEMENT THE ROTATION + OFFSETS CORRECTLY
+% %Mono-layer atmosphere
+% atmModel = atmosphere(photometry.V0,r0,L0,...
+%     'fractionnalR0',1,'altitude',0,...
+%     'windSpeed',10,'windDirection',0);
+% 
+% 
+% % add a rotation in radians, one scalar per WFS
+% wfs.lenslets.rotation = 1*-pi/4*ones(1,4);
+% % add an offset [x;y] per WFS in units of 1/D
+% wfs.lenslets.offset = 1*[10 -1 -1 1; 
+%                          -10 1 -1 -1]*0.25/nL;
+% %wfs.lenslets.offset = 10*ones(2,4)*0.25/nL;
+% 
+% wfsG.offset = wfs.lenslets.offset;
+% wfsG.rotation = wfs.lenslets.rotation;
+% 
+% 
+% science = source('wavelength',photometry.H);
+% 
+% lgsAst = lgsAst.*tel*wfs;
+% %        if os == 1
+% sparseMmse = sparseLMMSE(wfs,tel,atmModel,lgsAst,...
+%     'iNoiseVar', 1/1e-14,...
+%     'layerEstimation',true,...
+%     'mmseStar',science,...
+%     'outputWavefrontMask', reconstructionGrid,'overSampling',os);%,'phaseCovariance','real');
+% 
+% zernMode = 5;
+% zern = zernike(zernMode,tel.D,'resolution',41,'pupil',ones(41));
+% zern.c = ngs.wavelength/2/pi;
+% cross = zeros(41);
+% cross(19:23,: ) = 1;
+% cross(:, 19:23) = 1;
+% zern.modes = cross(:);
+% 
+% 
+% resTot = sparseMmse.H*zern.modes;
+% ith = 1;
+% 
+% res = resTot((ith-1)*760 + (1:760));
+% 
+% res2D = zeros(41);
+% res2D(reconstructionGrid) = res;
+% figure(10)
+% imagesc(res2D)
+% 
+% 
+% 
+% zernHR = zernike(zernMode,tel.D,'resolution',tel.resolution,'pupil',ones(tel.resolution));
+% zernHR.c = ngs.wavelength/2/pi;
+% 
+% lgsAst = lgsAst.*tel*zernHR*wfsG;
+% phiRes = (sparseMmse*wfsG.slopes);
+% 
+% phiRes = sparseMmse.Hss*(sparseMmse*wfsG.slopes);
+% 
+% rec2D = zeros(41);
+% rec2D(reconstructionGrid) = phiRes;
+% figure(20)
+% imagesc(rec2D)
+% 
+% 
+% figure(39)
+% subplot(1,4,1)
+% in = reshape(zern.modes,41,41).*reconstructionGrid;
+% imagesc(in)
+% title('input')
+% subplot(1,4,2)
+% imagesc(res2D)
+% title('model prop through H')
+% subplot(1,4,3)
+% imagesc(rec2D)
+% title('reconstructed')
+% subplot(1,4,4)
+% err = rec2D/ngs.wavelength*2*pi - in;
+% sqrt(var(err(reconstructionGrid)))
+% imagesc(err)
+% title('err')
 
 %% SCIENCE CAMERAS
 

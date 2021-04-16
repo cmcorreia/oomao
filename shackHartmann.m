@@ -1116,8 +1116,9 @@ classdef shackHartmann < hgsetget
             nSubap = size(obj.validLenslet,1);
             nPxSubap = tel.resolution/nSubap;
             
-            dSubap = tel.D/nSubap;
-            xLeftLim = meshgrid(linspace(-tel.D/2, tel.D/2-dSubap,tel.resolution/nPxSubap));
+            D = tel.D;
+            dSubap = D/nSubap;
+            xLeftLim = meshgrid(linspace(-D/2, D/2-dSubap,tel.resolution/nPxSubap));
             %xRightLim = xLeftLim + dSubap;
             yLeftLim = xLeftLim';
             %yRightLim = xRightLim';
@@ -1171,6 +1172,7 @@ classdef shackHartmann < hgsetget
             fill(real([pos11 pos12 pos22  pos21])' + obj.lenslets.offset(1,wfsIndex)*tel.D, ...
                 imag([pos11 pos12 pos22 pos21])'+obj.lenslets.offset(2,wfsIndex)*tel.D,'r','FaceColor','none','edgecolor','red')
             if nargin == 3
+                hold on
                 scatter(real(dm.modes.actuatorCoord(dm.validActuator)), imag(dm.modes.actuatorCoord(dm.validActuator)),'MarkerFaceColor','r')
             end
             axis square

@@ -1136,7 +1136,7 @@ classdef shackHartmann < hgsetget
             %gridMask = wfs.validLensletSamplingMask(nPxSubap);
             %imagesc(u,u,gridMask(1:end-1,1:end-1))
             if ~plotWfsCamera
-                %imagesc(u,u,tel.pupil)
+                imagesc(u,u,tel.pupil), hold on
             else
                 u = linspace(-tel.D/2, tel.D/2,size(obj.camera.frame,2));
                 angleRotationInRad = obj.lenslets.rotation(wfsIndex);

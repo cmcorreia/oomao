@@ -5,7 +5,7 @@
 % Pyramid WFS
 
 %% Choose which WFS mode to use
-wfsModel = 'diff'; % Options: 'diff', 'geom'
+wfsModel = 'geom'; % Options: 'diff', 'geom'
 
 %% Definition of the atmosphere 
 
@@ -184,7 +184,10 @@ dmCalib = calibration(dm,wfs,ngs,ngs.wavelength/100,10);
 
 if strcmp(wfsModel,'geom')
     wfsG = geomGrad(wfs.validLenslet, tel.pupilLogical);
-    dmCalibG = calibration(dm,wfsG,ngs,ngs.wavelength/40);
+    ngs = ngs.*tel*dm*wfsG;
+    Dgeom = wfsG.slopes*2*pi/ngs.wavelength;
+%calibDm.D = Dgeom;
+
 end
 % The influence functions are normalized to 1, the actuator are then
 % controlled in stroke in meter, here we choose a half a wavelength stroke.
@@ -232,10 +235,9 @@ end
 
 dmCalib.nThresholded = 5;
 if strcmp(wfsModel,'geom')
-    commandMatrix = dmCalibG.M;
-else
-    commandMatrix = dmCalib.M;
+    dmCalib.D = Dgeom;
 end
+commandMatrix = dmCalib.M;
 %% The closed loop
 % Combining the atmosphere and the telescope
 tel = tel+atm;

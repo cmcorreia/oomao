@@ -285,7 +285,7 @@ cam.exposureTime   = exposureTime;
 startDelay          = 10;
 cam.startDelay     = startDelay;
 flush(cam)
-set(sciH,'logging',true)
+set(science,'logging',true)
 dm.coefs       = 0;
 
 cam.frameListener.Enabled = 1;
@@ -293,7 +293,7 @@ cam.frameListener.Enabled = 1;
 figure(31416)
 imagesc(cam,'parent',subplot(2,1,1))
 subplot(2,1,2)
-h = imagesc(catMeanRmPhase(sciH));
+h = imagesc(catMeanRmPhase(science));
 axis xy equal tight
 colorbar
 

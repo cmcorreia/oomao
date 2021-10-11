@@ -303,6 +303,12 @@ zern = zernike(2:10,tel.D,'resolution',tel.resolution,'pupil',tel.pupil);
 % Closed loop integrator gain:
 loopGain = 0.5;
 gain_pol = 0.9;
+
+%% NOISE options
+% ngs.magnitude = 12;
+% wfs.camera.photonNoise = 1;
+% wfs.camera.readOutNoise = 4;
+% wfs.framePixelThreshold = wfs.camera.readOutNoise;
 %%
 % closing the loop with an integrator controller 
 nIteration                 = cam.startDelay+cam.exposureTime;
@@ -411,61 +417,3 @@ pbaspect([1.618 1 1])
 grid on
 set(gca,'FontSize',15)
 
-%% WFS noise
-% Noise can be added to the wavefront sensor but first we need to set the
-% star magnitude.
-ngs.magnitude = 10;
-%%
-% It can be useful to know the number of photon per subaperture. To do so,
-% let separate the atmosphere from the telescope
-tel = tel - atm;
-%%
-% re-propagate the source,
-ngs = ngs.*tel*wfs;
-%%
-% and display the subaperture intensity
-figure
-intensityDisplay(wfs)
-%%
-% Now the readout noise in photo-electron per pixel per frame rms is set
-wfs.camera.readOutNoise = 5;
-%% 
-% Photon-noise is enabled.
-wfs.camera.photonNoise = true;
-%%
-% A pixel threshold is defined
-wfs.framePixelThreshold = 5;
-%%
-% The loop is closed again
-nIteration = 200;
-total  = zeros(1,nIteration);
-residue = zeros(1,nIteration);
-dm.coefs = 0;
-tel = tel + atm;
-for kIteration=1:nIteration
-    % Propagation throught the atmosphere to the telescope, +tel means that
-    % all the layers move of one step based on the sampling time and the
-    % wind vectors of the layers
-    ngs=ngs.*+tel; 
-    % Saving the turbulence aberrated phase
-    turbPhase = ngs.meanRmPhase;
-    % Variance of the atmospheric wavefront
-    total(kIteration) = var(ngs);
-    % Propagation to the WFS
-    ngs=ngs*dm*wfs; 
-    % Variance of the residual wavefront
-    residue(kIteration) = var(ngs);
-    % Computing the DM residual coefficients
-    residualDmCoefs = commandMatrix*wfs.slopes;
-    % Integrating the DM coefficients
-    dm.coefs = dm.coefs - loopGain*residualDmCoefs;
-    % Display of turbulence and residual phase
-    set(h,'Cdata',[turbPhase,ngs.meanRmPhase])
-    drawnow
-end
-%%
-% Updating the display
-set(0,'CurrentFigure',12)
-hold on
-plot(u,rmsMicron(total),'b--',u,rmsMicron(residue),'r--')
-legend('Full','Full (theory)','Residue','Full (noise)','Residue (noise)','Location','Best')

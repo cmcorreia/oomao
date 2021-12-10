@@ -53,7 +53,7 @@ nPx = 60;
 tel = telescope(3.6,...
     'fieldOfViewInArcMin',2.5,...
     'resolution',nPx,...
-    'samplingTime',1/250);
+    'samplingTime',1/2000);
 
 %% Definition of a calibration source
 % The source class constructor has parameters/value pairs of optional inputs:
@@ -270,7 +270,7 @@ loopGain = 0.5;
 gain_pol = 0.9;
 %%
 % closing the loop with an integrator controller 
-nIteration = 1000;
+nIteration = 4000;
 total  = zeros(1,nIteration);
 residue = zeros(1,nIteration);
 totalProj = zeros(zern.nMode,nIteration);
@@ -339,7 +339,7 @@ ylabel('Wavefront rms [\mum]')
 %% THEORETICAL PERFORMANCE ANALYSIS - CASE OF THE SINGLE INTEGRATOR LOOP WITH GAIN
 varFit      = 0.23*(d/atm.r0)^(5/3)*(atm.wavelength/science(1).wavelength)^2;
 varAlias    = 0.07*(d/atm.r0)^(5/3)*(atm.wavelength/science(1).wavelength)^2;
-varTempo    = phaseStats.closedLoopVariance(atm, tel.samplingTime,0*tel.samplingTime,loopGain)*(atm.wavelength/science(1).wavelength)^2;
+varTempo    = phaseStats.closedLoopVariance(atm, tel.samplingTime,0.5*tel.samplingTime,loopGain)*(atm.wavelength/science(1).wavelength)^2;
 marechalStrehl_lsq_theoretical = 100*exp(-varFit-varAlias-varTempo)
 
 figure(12)

@@ -379,6 +379,145 @@ classdef tools < utilities & lamTools & psfrTools
             
         end
 
+                %% create a DM with pre-defined actuator layout
+        function [px,py] = actuatorCoordinates(tel,option,pitch,inPupil)
+            %% actuatorCoordinates for different DM models
+            % [px py] = actuatorCoordinates(tel,option,pitch,inPupil)
+            % Computes the actuator coordinates for different DM models for a
+            % given telescope as
+            %    LBT
+            %    square or Fried
+            %    random
+            %    hexagon
+            %    triangle (scale downed M4)
+            % a pitch in meters and either across the whole squared
+            % computational domain set by tel.D or within the pupil
+            % tel.pupil
+            
+            
+            D = tel.D + 2*pitch;
+            obscurationRatio = tel.obstructionRatio;
+            if ~exist('inPupil','var') || isempty(inPupil)
+                inPupil = 1;
+            end
+            switch option
+                % LBT
+                case 'LBT'
+                    N = 12;     % Initial number of actuators in first ring
+                    n = 3;      % Additional actuators per rings
+                    nRings = 9; % Number of rings
+                    xcentre = 0;
+                    ycentre = 0;
+                    px = 0;
+                    py = 0;
+                    
+                    for ind=1:nRings
+                        theta = 0:pi/(N/2 + ((ind-1)*n)):2*pi;
+                        px = [px, pitch*ind*cos(theta(1:end-1)) + xcentre];
+                        py = [py, pitch*ind*sin(theta(1:end-1)) + ycentre];
+                    end
+                    
+                    if inPupil==1
+                        % Select in Pupil
+                        dist = sqrt(px.^2 + py.^2);
+                        valid = dist <= D/2+pitch/2 & dist >= obscurationRatio * D/2  -pitch/2;
+                        px = px(valid);
+                        py = py(valid);
+                    else
+                        vx = find(abs(px) <= D/2);
+                        vy = find(abs(py(vx)) <= D/2);
+                        px = px(vx(vy));
+                        py = py(vx(vy));
+                    end
+                    % Square
+                case {'square', 'fried'}
+                    [px, py] = meshgrid(-D/2:pitch:D/2);
+                    px = reshape(px, 1, numel(px));
+                    py= reshape(py, 1, numel(py));
+                    
+                    if inPupil==1
+                        % Select in Pupil
+                        dist = sqrt(px.^2 + py.^2);
+                        valid = dist <= D/2+pitch/2 & dist >= obscurationRatio * D/2  -pitch/2;
+                        px = px(valid);
+                        py = py(valid);
+                        %scatter(px, py)
+                    else
+                        vx = find(abs(px) <= D/2);
+                        vy = find(abs(py(vx)) <= D/2);
+                        px = px(vx(vy));
+                        py = py(vx(vy));
+                    end
+                    
+                    % Random
+                case 'random'
+                    oc = tel.obstructionRatio * tel.D/2;
+                    pr = oc + (tel.D/2-oc).*rand(250,1);
+                    ptheta = 2*pi*rand(250,1);
+                    px = pr.*cos(ptheta);
+                    py = pr.*sin(ptheta);
+                    
+                    % % Hexagon
+                case {'hexagon', 'triangle'}
+                    % Hexagon
+                    if strcmp(option, 'hexagon')
+                        x_hexagon=[-1 -0.5 0.5 1];
+                        y_hexagon=[0 -sqrt(3)/2 -sqrt(3)/2 0];
+                    end
+                    
+                    % Hexagon centre
+                    if strcmp(option, 'triangle')
+                        x_hexagon=[0, 1.5, -1, -0.5,      0.5,        1];
+                        %y_hexagon=[0, -0.5,   0, -0.5, -0.5, 0];
+                        y_hexagon=[0, -.9,   0, -.9, -.9, 0]; % for M4
+                    end
+                    
+                    N = tel.D/pitch/2+2;
+                    M = tel.D/(pitch*0.9)/2+2;
+                    px = [];
+                    py = [];
+                    
+                    for nn=0:N-1
+                        for mm=0:M-1
+                            px = [px, x_hexagon+1.5+3*nn;];
+                            py = [py, y_hexagon+.9+.9*2*mm];
+                        end
+                    end
+                    
+                    % If number of actuators fitting into square is odd make sure y
+                    % coordinate has centre at 0.  I.e. if pitch is exactly and EVEN
+                    % division of D.
+                    px = px - max(px(:))/2;
+                    if (tel.D/pitch)/2==round((tel.D/pitch)/2)
+                        py = py - max(py(:))/2 - 1/2;
+                    else
+                        py = py - max(py(:))/2;
+                    end
+                    px = px * pitch;
+                    py = py * pitch;
+                    
+                    if inPupil==1
+                        % Select in Pupil
+                        dist = sqrt(px.^2 + py.^2);
+                        valid = dist <= D/2+pitch/2 & dist >= obscurationRatio * D/2  -pitch/2;
+                        px = px(valid);
+                        py = py(valid);
+                    else
+                        vx = find(abs(px) <= D/2);
+                        vy = find(abs(py(vx)) <= D/2);
+                        px = px(vx(vy));
+                        py = py(vx(vy));
+                    end
+            end
+            % scatter plot
+            %scatter(px,py)
+            %box on
+            %title('DM actuator locations')
+            %xlabel('meters')
+            %ylabel('meters')
+            %axis equal tight;
+            
+        end
         
     end
 end

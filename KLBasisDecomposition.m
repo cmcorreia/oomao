@@ -159,7 +159,7 @@ kl_basis0 = IF1*Bp0;
 % KL Basis in the phase space, including TT (The 3 last modes are removed)
 kl_basis=[TT kl_basis0(:,1:end-3)];
 
-% Mode To Command matrix - Project on full span of the DM IF space 
+% Mode To Command matrix - Project on full span of the DM IF space [correia 27/02/2022]
 M2C=pinv(full(dm.modes.modes(tel.pupilLogical,:)))*kl_basis(tel.pupilLogical,:)/2;
 
 end

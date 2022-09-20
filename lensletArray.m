@@ -182,6 +182,8 @@ classdef lensletArray < handle
                 else
                     offset_ = val;
                 end
+            else
+                offset_ = val;
             end
             obj.p_offset(1:2,:) = offset_;
             rotation_ =  obj.p_offset(3,:);

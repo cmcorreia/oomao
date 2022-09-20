@@ -139,7 +139,7 @@ classdef lamTools %< eltTools
 
         
         %% Rotate the DM actuator position by rotAngle in radian
-        function [pxx, pyy] = rotateDM(px, py, rotAngle)
+        function [pxx, pyy] = rotateDM(px, py, rotAnglInRadians)
             % function [pxx, pyy] = rotateDM(px,py, rotAngle)
             % This function rotate the DM actuator positions.
             %
@@ -154,8 +154,8 @@ classdef lamTools %< eltTools
             % py = imag(bifM4.actuatorCoord);
             % [pxx, pyy] = lamTools.rotateDM(px, py, rotAngle);
             % bifM4.actuatorCoord = pxx + 1j*pyy;
-            pxx = px*cos(rotAngle) - py*sin(rotAngle);
-            pyy = py*cos(rotAngle) + px*sin(rotAngle);
+            pxx = px*cos(rotAnglInRadians) - py*sin(rotAnglInRadians);
+            pyy = py*cos(rotAnglInRadians) + px*sin(rotAnglInRadians);
         end
         %         %% rotate DM coordinates
         %         function [px, py] = rotateDM(px,py, theta)

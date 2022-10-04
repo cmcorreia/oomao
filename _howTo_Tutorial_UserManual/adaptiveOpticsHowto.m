@@ -53,7 +53,7 @@ nPx = 60;
 tel = telescope(3.6,...
     'fieldOfViewInArcMin',2.5,...
     'resolution',nPx,...
-    'samplingTime',1/2000);
+    'samplingTime',1/250);
 
 %% Definition of a calibration source
 % The source class constructor has parameters/value pairs of optional inputs:
@@ -83,9 +83,9 @@ science = source('wavelength',photometry.H);
 % illuminated subaperture and a fully illuminated aperture
 nLenslet = 10;
 d = tel.D/nLenslet;
-wfs = shackHartmann(nLenslet,nPx,0.5);
+%wfs = shackHartmann(nLenslet,nPx,0.5);
 %wfs = pyramid(nLenslet,nPx,'modulation',5); % increase modulation to avoid loss of performance due to small linear range
-%wfs = pyramid(nLenslet,nPx,'modulation',5, 'src', ngs,'tel',tel,'minLightRatio', 0.05);
+wfs = pyramid(nLenslet,nPx,'modulation',5, 'src', ngs,'tel',tel,'minLightRatio', 0.05);
 %%
 % Propagation of the calibration source to the WFS through the telescope
 ngs = ngs.*tel*wfs;
@@ -361,7 +361,7 @@ hold on
 % telemetry data analysis
 Fs = 1/tel.samplingTime;
 freq = 0:Fs/nIteration:Fs/2;
-iMode = 7;
+iMode = 3;
 rtf = abs(fft(resProj(iMode,:))).^2./abs(fft(totalProj(iMode,:))).^2;
 loglog(freq, rtf(1:nIteration/2+1))
 

@@ -10,7 +10,7 @@ close all;
 extendedFried   = 1; % use a stand-alone definition of valid actuators based on each IF influence within the pupil. 
 useWfsG = 1; % use a G-SHWFS in open-loop
 useDoubleResolutionReconstruction = 1; % can only be used with the reconstructorType = 'sparse' or 'lmmse'
-reconstructorType = 'sparse'; % 'slmmse', 'sparse', 'lmmse', 'glao'
+reconstructorType = 'slmmse'; % 'slmmse', 'sparse', 'lmmse', 'glao'
 useExplicitReconFromSparse = 0;
 
 if useDoubleResolutionReconstruction == 2
@@ -177,6 +177,8 @@ zenithOpt   = rho(:)*constants.arcsec2radian;
 azimuthOpt  = theta;
 optFitSrc   = source('zenith', zenithOpt, 'azimuth', azimuthOpt);
 optFitSrc   = source('zenith', 0, 'azimuth', 0);
+
+
 % LGS sources for tomography
 radiusAst   = 10;
 nLgs        = 4;
@@ -185,7 +187,7 @@ lgsHeight   = 90e3;
 spotSize    = [];
 flux        = 25e5; % 1000ph/frame/spup (40x40 spup, 1kHz, 0.2 side square)
 
-% % LGS
+
 lgsAst = laserGuideStar(d,tel.D, lgsHeight/cos(zenithAngle), ...
     spotSize, flux, [],'asterism',{[nLgs,arcsec(radiusAst),thetaAst]}, 'wavelength', photometry.Na,'height',lgsHeight/cos(zenithAngle));
 
@@ -193,6 +195,32 @@ theta = linspace(0,2*pi-2*pi/nLgs,nLgs);
 for iGS = 1:nLgs
     lgsAst(iGS).viewPoint = D/2*[cos(theta(iGS)), sin(theta(iGS))];
 end
+
+
+%% Extended LGS sources - for illustration only, not used in the code
+
+    
+spotSize = []; %arcsec
+naDensityProfile = ones(1,11); % [1:6 5:-1:1];
+lgsAstExt = laserGuideStar(d,tel.D, lgsHeight/cos(zenithAngle), ...
+    spotSize, flux, naDensityProfile,'asterism',{[nLgs,arcsec(radiusAst),thetaAst]}, 'wavelength', photometry.Na,'height',1e3*((-5:5)+90)/cos(zenithAngle));
+
+theta = linspace(0,2*pi-2*pi/nLgs,nLgs);
+idx = 1;
+    for k = 1:11
+for iGS = 1:nLgs
+            lgsAstExt(idx).viewPoint = D/2*[cos(theta(iGS)), sin(theta(iGS))];
+            idx = idx +1;
+    end
+end
+
+
+naParam = repmat([10000 90000], 4,1); % [deltaNa,naAltidude]
+for iGS = 1:nLgs
+    lgsLaunchCoord(iGS,:) = D/2*[cos(theta(iGS)), sin(theta(iGS))];
+end
+noisVar = theoreticalNoise(wfs,tel,atm,lgsAst,ngs,'naParam',naParam,'lgsLaunchCoord',lgsLaunchCoord);
+
 
 
 
@@ -349,13 +377,6 @@ end
 %% SCIENCE CAMERAS
 
 % Science Sources for performance estimation
-xs = linspace(-15,15,3);
-[Xs Ys] = meshgrid(xs);
-[theta rho] = cart2pol(Xs,Ys);
-zenithSci     = rho(:)*constants.arcsec2radian;
-azimuthSci  = theta;
-
-sciH = source('zenith', zenithSci, 'azimuth', azimuthSci,'wavelength',photometry.H);
 sciH = source('wavelength',photometry.H);
 
 nGs = length(lgsAst);
@@ -374,10 +395,10 @@ tel = tel + atm;
 
 %% Loop initialization
 % reset(tel);
-%% With noise on the WFS
-% wfs.camera.readOutNoise = 0;
-% wfs.camera.photonNoise = true;
-% wfs.framePixelThreshold = 0;
+%% Noise options on the WFS
+wfs.camera.readOutNoise = 0;
+wfs.camera.photonNoise = false;
+wfs.framePixelThreshold = 0;
 
 
 if useWfsG

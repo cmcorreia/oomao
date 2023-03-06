@@ -1112,7 +1112,7 @@ classdef shackHartmann < hgsetget
                 makehgtform('translate',-[(n-1)/2,(n-1)/2,0]/n,'scale',1/n,'translate',[1,1,0]*2),varargin{:});
         end
         %%
-        function subaperturesDisplay(obj,tel,dm,wfsIndex,plotWfsCamera)
+        function subaperturesDisplay(obj,tel,dm,wfsIndex,plotWfsCamera,colour)
             nSubap = size(obj.validLenslet,1);
             nPxSubap = tel.resolution/nSubap;
             
@@ -1129,6 +1129,9 @@ classdef shackHartmann < hgsetget
             if ~(exist('plotWfsCamera','var') && ~isempty(plotWfsCamera))
                 plotWfsCamera = 0;
             end
+            if ~(exist('colour','var') && ~isempty(colour))
+                colour = 'r';
+            end
             xLeftLim = xLeftLim;% + obj.lenslets.offset(1,wfsIndex)*tel.D;
             yLeftLim = yLeftLim;% + obj.lenslets.offset(2,wfsIndex)*tel.D;
             %figure, hold on
@@ -1136,7 +1139,7 @@ classdef shackHartmann < hgsetget
             %gridMask = wfs.validLensletSamplingMask(nPxSubap);
             %imagesc(u,u,gridMask(1:end-1,1:end-1))
             if ~plotWfsCamera
-                imagesc(u,u,tel.pupil), hold on
+                %imagesc(u,u,tel.pupil), hold on
             else
                 u = linspace(-tel.D/2, tel.D/2,size(obj.camera.frame,2));
                 angleRotationInRad = obj.lenslets.rotation(wfsIndex);
@@ -1170,7 +1173,7 @@ classdef shackHartmann < hgsetget
             %scatter(real(pos22), imag(pos22),'b')
 
             fill(real([pos11 pos12 pos22  pos21])' + obj.lenslets.offset(1,wfsIndex)*tel.D, ...
-                imag([pos11 pos12 pos22 pos21])'+obj.lenslets.offset(2,wfsIndex)*tel.D,'r','FaceColor','none','edgecolor','red')
+                imag([pos11 pos12 pos22 pos21])'+obj.lenslets.offset(2,wfsIndex)*tel.D,'r','FaceColor','none','edgecolor',colour)
             if nargin == 3
                 hold on
                 scatter(real(dm.modes.actuatorCoord(dm.validActuator)), imag(dm.modes.actuatorCoord(dm.validActuator)),'MarkerFaceColor','r')

@@ -946,6 +946,33 @@ classdef spatialFrequencyAdaptiveOptics < handle
             [opdPSD, ampPSD] = phaseStats.differentialRefraction(f, obj.atm, wvlWfs, wvlSci);
             obj.atm.wavelength = wvlRef;
         end
+        
+        %%
+        function total = chromaticPSD(obj, wvlWfs, wvlSci, zenithAngleInDeg)
+            
+            % remove piston due to aperture filtering
+            pf = obj.pistonFilter(hypot(obj.fx,obj.fy));
+ps = 1;
+            % amplitude PSD
+            wvlAtm = obj.atm.wavelength;
+            obj.atm.wavelength = wvlSci;
+            f = hypot(obj.fx, obj.fy);
+            % OPD and AMP PSDs
+            PSDamp = phaseStats.ampSpectrum(f,obj.atm);
+            obj.atm.wavelength = wvlAtm;
+            
+            total = PSDamp;
+            [opdPSD, ampPSD] = fresnelChromaticityPSD(obj, wvlWfs, wvlSci);
+            total = total + opdPSD.*pf + ampPSD;
+            
+            [opdPSD, ampPSD] = dispersionDisplacementPSD(obj, zenithAngleInDeg, wvlWfs, wvlSci);
+            total = total + opdPSD.*pf + ampPSD;
+            
+            [opdPSD, ampPSD] = differentialRefractionPSD(obj, wvlWfs, wvlSci);
+            total = total + opdPSD.*pf + ampPSD;
+            
+            
+         end
         %%
         function [outInRadSqSciWvl, outInNmRms] = varChromatic(obj, wvlWfs, wvlSci, zenithAngleInDeg, flagOpdRejection)
             if ~exist('zenithAngleInDeg','var') || isempty(zenithAngleInDeg)
@@ -963,6 +990,16 @@ classdef spatialFrequencyAdaptiveOptics < handle
                 pf = 1;
                 RTF = 1;
             end
+            
+            % amplitude PSD
+             wvlAtm = obj.atm.wavelength;
+            obj.atm.wavelength = wvlSci;
+            f = hypot(obj.fx, obj.fy);
+            % OPD and AMP PSDs
+            PSDamp = phaseStats.ampSpectrum(f,obj.atm);
+            varAmpUncorr = trapz(obj.fy(:,1),trapz(obj.fx(1,:),PSDamp.*pf,2));
+            obj.atm.wavelength = wvlAtm;
+
             % Fresnel chromaticity
             [opdPSD, ampPSD] = fresnelChromaticityPSD(obj, wvlWfs, wvlSci);
             varPhFresnelChrom = trapz(obj.fy(:,1),trapz(obj.fx(1,:),opdPSD.*pf,2));
@@ -978,9 +1015,11 @@ classdef spatialFrequencyAdaptiveOptics < handle
             varPhDiffRefraction = trapz(obj.fy(:,1),trapz(obj.fx(1,:),opdPSD.*pf,2));
             varAmpDiffRefraction = trapz(obj.fy(:,1),trapz(obj.fx(1,:),ampPSD,2));
             
-            outInRadSqSciWvl = varPhFresnelChrom + varAmpFresnelChrom + ...
+            outInRadSqSciWvl = varAmpUncorr + ...
+                varPhFresnelChrom + varAmpFresnelChrom + ...
                 varPhDispDisp + varAmpDispDisp + ...
                 varPhDiffRefraction + varAmpDiffRefraction;
+            
             outInNmRms = sqrt(outInRadSqSciWvl)*wvlSci/2/pi*1e9;
         end
         %%

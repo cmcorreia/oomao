@@ -622,6 +622,252 @@ classdef phaseStats
             
         end
 
+                function varargout = spatioAngularIrregularCovarianceMatrix(sampling, range,wfs,atm,srcAC,varargin)
+            %% SPATIOANGULARCOVARIANCEMATRIX Phase spatio-angular covariance meta matrix
+            %
+            % S = spatioAngularCovarianceMatrix(sampling,range,atm,src1)
+            % computes the spatio-angular auto-correlation meta-matrix of the
+            % wavefront between all the sources srcAC. The phase is
+            % sampling with sampling points in the given range and
+            % propagates through the atmosphere defined by the object atm
+            %
+            % C = spatioAngularCovarianceMatrix(sampling,range,atm,src1,src2)
+            % computes the spatio-angular cross-correlation meta-matrix of the
+            % wavefront between all src2 and src1. The phase is
+            % sampling with sampling points in the given range and
+            % propagates through the atmosphere defined by the object atm
+            %
+            % [S,C] = spatioAngularCovarianceMatrix(...) computes both
+            % auto- and cross-correlation meta-matrix
+            %
+            % ... = spatioAngularCovarianceMatrix(...,'mask',mask) restrict
+            % the sampling within the mask
+            
+            inputs = inputParser;
+                        inputs.addRequired('sampling',@isnumeric);
+            inputs.addRequired('range',@isnumeric);
+            inputs.addRequired('wfs',@(x) isa(x,'shackHartmann'));
+            inputs.addRequired('atm',@(x) isa(x,'atmosphere'));
+            inputs.addRequired('srcAC',@(x) isa(x,'source'));
+            inputs.addOptional('srcCC',[],@(x) isa(x,'source'));
+            inputs.addOptional('tipTilt',false,@islogical);
+            inputs.addParameter('mask',true(sampling),@islogical);
+            inputs.addParameter('lag',0,@isnumeric);
+            inputs.addParameter('xyOutput',[],@isnumeric);
+            inputs.parse(sampling,range,wfs,atm,srcAC,varargin{:});
+            
+            m_srcCC = inputs.Results.srcCC;
+            tipTilt = inputs.Results.tipTilt;
+            m_mask  = inputs.Results.mask;
+            m_tau   = inputs.Results.lag;
+            xyOutput= inputs.Results.xyOutput;
+                
+            %[m_x,m_y] = meshgrid( linspace(-1,1,sampling)*range/2 );
+            m_nGs   = length(srcAC);
+            L0r0ratio= (atm.L0./atm.r0).^(5./3);
+            m_cst      = (24.*gamma(6./5)./5).^(5./6).*...
+                (gamma(11./6)./(2.^(5./6).*pi.^(8./3))).*...
+                L0r0ratio;
+            m_cstL0 = (24.*gamma(6./5)./5).^(5./6).*...
+                (gamma(11./6).*gamma(5./6)./(2.*pi.^(8./3))).*L0r0ratio;
+            m_cstr0 = (24.*gamma(6./5)./5).^(5./6).*...
+                (gamma(11./6).^2./(2.*pi.^(11./3))).*...
+                atm.r0.^(-5./3);
+            m_L0      = atm.L0;
+            
+            m_nLayer   = atm.nLayer;
+            layers   = atm.layer;
+            m_altitude = [layers.altitude];
+            m_fr0      = [layers.fractionnalR0];
+            [m_windVx,m_windVy] = pol2cart([layers.windDirection],[layers.windSpeed]);
+            m_srcACdirectionVector = cat(2,srcAC.directionVector);
+            m_srcACheight          = [srcAC.height];
+            
+            if nargout==2
+                
+                tic
+                varargout{1} = autoCorrelation(m_x,m_y,m_mask,...
+                    m_nGs,m_srcACdirectionVector,m_srcACheight,...
+                    m_nLayer,m_altitude,m_fr0,...
+                    m_L0,m_cstL0,m_cst);
+                toc
+                
+                m_xAC = m_x(m_mask);
+                m_yAC = m_y(m_mask);
+                if isempty(xyOutput)
+                    m_xCC = m_xAC;
+                    m_yCC = m_yAC;
+                else
+                    m_xCC = xyOutput(:,1);
+                    m_yCC = xyOutput(:,2);
+                end
+                
+                tic                
+                varargout{2} = crossCorrelation(sampling,range,wfs,m_mask,m_srcCC,...
+                    m_nGs,m_srcACdirectionVector,m_srcACheight,...
+                    m_nLayer,m_altitude,m_fr0,...
+                    m_L0,m_cstL0,m_cst,m_windVx,m_windVy,m_tau);
+                toc
+                
+            else
+                
+                if isempty(m_srcCC)
+                    
+                    varargout{1} = autoCorrelation(sampling,range,wfs,m_mask,...
+                        m_nGs,m_srcACdirectionVector,m_srcACheight,...
+                        m_nLayer,m_altitude,m_fr0,...
+                        m_L0,m_cstL0,m_cst);
+                    
+                else
+                    
+                    if tipTilt
+                        varargout{1} = crossCorrelationTT(m_srcCC,m_x,m_y,m_mask,...
+                            m_nGs,m_srcACdirectionVector,m_srcACheight,...
+                            m_nLayer,m_altitude,m_fr0,...
+                            m_L0,m_cstr0,range);
+                    else
+                        varargout{1} = crossCorrelation(sampling,range,wfs,m_mask,m_srcCC,...
+                            m_nGs,m_srcACdirectionVector,m_srcACheight,...
+                            m_nLayer,m_altitude,m_fr0,...
+                            m_L0,m_cstL0,m_cst,m_windVx,m_windVy,m_tau);
+                    end
+                    
+                end
+                
+            end
+            
+            
+            function C = crossCorrelation(sampling,range,wfs,mask,srcCC,...
+                    nGs,srcACdirectionVector,srcACheight,...
+                    nLayer,altitude,fr0,...
+                    L0,cstL0,cst,windVx,windVy,tau)
+                    
+                fprintf(' -->> Cross-correlation meta-matrix!\n')
+                
+                nSs = length(srcCC);
+                srcCCdirectionVector = cat(2,srcCC.directionVector);
+                srcCCheight          = [srcCC.height];
+                C = cellfun( @(x) zeros(sampling,sampling) , cell(nSs,nGs) , 'UniformOutput' , false );
+                %cstL0CC = cstL0*ones(length(xCC),length(xAC));
+                
+                for k=1:nSs*nGs
+                    
+                    [kGs,iGs] = ind2sub([nSs,nGs],k);
+                    buf = 0;
+                    
+                        [x1,y1] = meshgrid( linspace(-1,1,sampling)*range/2 );
+                        [x1,y1] = tools.rotateDM(x1(:),y1(:),wfs.lenslets.rotation(iGs)*180/pi);
+                        x1 = x1 - wfs.lenslets.offset(1,iGs)*range;
+                        y1 = y1 - wfs.lenslets.offset(2,iGs)*range;
+                        x1 = reshape(x1, sampling, sampling);
+                        y1 = reshape(y1, sampling, sampling);
+                        
+                        [x2,y2] = meshgrid( linspace(-1,1,sampling)*range/2 );
+                        %[x2,y2] = tools.rotateDM(x2(:),y2(:),wfs.lenslets.rotation(kGs)*180/pi);
+                        %x2 = x2 + wfs.lenslets.offset(1,kGs)*range;
+                        %y2 = y2 + wfs.lenslets.offset(1,kGs)*range;
+                        %x2 = reshape(x2, sampling, sampling);
+                        %y2 = reshape(y2, sampling, sampling);
+                        
+                        for kLayer=1:nLayer
+                            
+                            %                         atmSlab = slab(atm,kLayer);
+                            
+                            beta = srcACdirectionVector(:,iGs)*altitude(kLayer);
+                            scale = 1 - altitude(kLayer)/srcACheight(iGs);
+                            iZ = complex( x1*scale + beta(1) , y1*scale + beta(2) );
+                            
+                            beta = srcCCdirectionVector(:,kGs)*altitude(kLayer);
+                            scale = 1 - altitude(kLayer)/srcCCheight(kGs);
+                            jZ  = complex( x2*scale + beta(1) , y2*scale + beta(2) );
+                            
+                            out = phaseStats.covarianceMatrix(jZ, iZ, slab(atm,kLayer));
+                            out(~mask,:) = [];
+                            out(:,~mask) = [];
+                            
+                            buf = buf + out;
+                            
+                        end
+                    
+                    C{k} = buf;
+                    
+                end
+                
+                    buf = C;
+                    C = cell(nSs,1);
+                    for k=1:nSs
+                        C{k} = cell2mat(buf(k,:));
+                    end
+                
+            end
+            
+            function S = autoCorrelation(sampling,range,wfs,mask,...
+                    nGs,srcACdirectionVector,srcACheight,...
+                    nLayer,altitude,fr0,...
+                    L0,cstL0,cst)
+                    
+                    fprintf(' -->> Auto-correlation meta-matrix!\n')
+                    
+                    kGs = reshape( triu( reshape(1:nGs^2,nGs,nGs) , 1) , 1, []);
+                    kGs(1) = 1;
+                    kGs(kGs==0) = [];
+                    S = cellfun( @(x) zeros(sum(mask(:))) , cell(1,length(kGs)) , 'UniformOutput' , false );
+                    
+                    for k=1:length(kGs)
+                        
+                        [iGs,jGs] = ind2sub( [nGs,nGs] , kGs(k) );
+                        buf = 0;
+                        
+                        [x1,y1] = meshgrid( linspace(-1,1,sampling)*range/2 );
+                        [x1,y1] = tools.rotateDM(x1(:),y1(:),wfs.lenslets.rotation(iGs)*180/pi);
+                        x1 = x1 - wfs.lenslets.offset(1,iGs)*range;
+                        y1 = y1 - wfs.lenslets.offset(2,iGs)*range;
+                        x1 = reshape(x1, sampling, sampling);
+                        y1 = reshape(y1, sampling, sampling);
+                        
+                        [x2,y2] = meshgrid( linspace(-1,1,sampling)*range/2 );
+                        [x2,y2] = tools.rotateDM(x2(:),y2(:),wfs.lenslets.rotation(jGs)*180/pi);
+                        x2 = x2 - wfs.lenslets.offset(1,jGs)*range;
+                        y2 = y2 - wfs.lenslets.offset(2,jGs)*range;
+                        x2 = reshape(x2, sampling, sampling);
+                        y2 = reshape(y2, sampling, sampling);
+                        
+                        for kLayer=1:nLayer
+                            
+                            %                         atmSlab = slab(atm,kLayer);
+                            
+                            beta = srcACdirectionVector(:,iGs)*altitude(kLayer);
+                            scale = 1 - altitude(kLayer)/srcACheight(iGs);
+                            iZ = complex( x1*scale + beta(1) , y1*scale + beta(2) );
+                            
+                            beta = srcACdirectionVector(:,jGs)*altitude(kLayer);
+                            scale = 1 - altitude(kLayer)/srcACheight(jGs);
+                            jZ  = complex( x2*scale + beta(1) , y2*scale + beta(2) );
+                            
+                            out = phaseStats.covarianceMatrix(iZ, jZ, slab(atm,kLayer));
+                            out(~mask,:) = [];
+                            out(:,~mask) = [];
+                            
+                            buf = buf + out;
+                            
+                        end
+                        
+                        S{k} = buf;
+                        
+                    end
+                    
+                    buf = S;
+                    S = cellfun( @(x) zeros(sum(mask(:))) , cell(nGs) , 'UniformOutput' , false );
+                    S(kGs) = buf;
+                    S(1:nGs+1:nGs^2) = S(1,1);
+                    S = cell2mat(S);
+                    S = triu(S,1)+triu(S)';
+
+            end
+            
+            
+        end
+
         function varargout = spatioAngularCovarianceMatrix(sampling,range,atm,srcAC,varargin)
             %% SPATIOANGULARCOVARIANCEMATRIX Phase spatio-angular covariance meta matrix
             %

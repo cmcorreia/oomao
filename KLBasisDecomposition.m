@@ -1,4 +1,4 @@
-function [kl_basis, M2C, eig, coef] = KLBasisDecomposition(tel,atm,dm,oversampling,vectorised)
+function [kl_basis, M2C, eig, coef] = KLBasisDecomposition(tel,atm,dm,oversampling,vectorised,dmLowRes)
 %[kl_basis, Bp, eig, coef] = KLBasisDecomposition(influenceFunctions,D,r0,L0,oversampling)
 % This function computes the Kharunen Loeve Basis in the DM space applying a doule digaonalization (geometrical and stastical).
 % This code is adapted for OOMAO from an ESO code based on the work develloped by E. Gendron (1995).
@@ -13,6 +13,8 @@ function [kl_basis, M2C, eig, coef] = KLBasisDecomposition(tel,atm,dm,oversampli
 if ~exist('vectorised','var') || isempty(vectorised)
     vectorised = 0;
 end
+
+useNewCode = 1; % use this version of the code with updates on how to generate a vector space orthogonal to the original space spanned by the IFs
 % number of pixels in the pupil
 Spup=tel.pixelArea;
 
@@ -29,7 +31,9 @@ IF = bsxfun(@times, IF, tel.pupil);
 Z=zernike(tel,1:3);
 % normalize with RMS
 rm_modes=Z.modes;
+
 rm_modes=rm_modes*diag(1./rms(rm_modes(tel.pupilLogical,:)));
+
 
 rm_modes2D=reshape(rm_modes,nRes,nRes,Z.nMode);
 % Keep pure Tip & Tilt
@@ -53,22 +57,62 @@ if ~vectorised
     end
     fprintf('Low-order removal took: %2.2f s\n',toc(tStart))
 else
-    % Equivalent code :: vectorised :: 10x faster
-    tStart = tic;
-    'Using vectorised option'
-    normCoeff = diag(rm_modes'*rm_modes);
-    proj = rm_modes'*reshape(IF, nRes^2,nAct);
-    coef = bsxfun(@times, proj, 1./normCoeff);
-    IF = reshape(IF, nRes^2,nAct) - rm_modes*coef;
-    IF = reshape(IF, nRes, nRes, []);
-    fprintf('Low-order removal took: %2.2f s\n',toc(tStart))
+    if ~useNewCode
+        % Equivalent code :: vectorised :: 10x faster
+        tStart = tic;
+        'Using vectorised option'
+        normCoeff = diag(rm_modes'*rm_modes);
+        proj = rm_modes'*reshape(IF, nRes^2,nAct);
+        coef = bsxfun(@times, proj, 1./normCoeff);
+        IF = reshape(IF, nRes^2,nAct) - rm_modes*coef;
+        IF = reshape(IF, nRes, nRes, []);
+        fprintf('Low-order removal took: %2.2f s\n',toc(tStart))
+    else
+        % NEW NEW Equivalent code :: vectorised :: 10x faster
+        tStart = tic;
+        'Using vectorised option'
+        IF = reshape(IF, nRes^2,nAct);
+        Delta = IF'*IF;
+        tau = pinv(Delta)*IF'*rm_modes;
+        %IF = IF*(eye(324) - tau*pinv(tau));
+        IF = IF*(eye(nAct) - tau*pinv(tau'*Delta*tau)*tau'*Delta); % this
+        % is the formulation in Gendron/Ferreira18 and Verinaud that seems
+        % to lead to consistent results as previous line. However, the
+        % generated KL modes are much more similar to Zernike's in the
+        % low-order range than the previous. This implementation is
+        % therefore preferred
+        
+        IF = reshape(IF, nRes, nRes, []);
+        fprintf('Low-order removal took: %2.2f s\n',toc(tStart))
+    end
 end
 disp('done!')
+%%
+% figure(108)
+% subplot(2,2,1)
+% plot(IF0'*IForig*tau)
+% title('Original code')
+% colorbar
+% 
+% subplot(2,2,2)
+% plot(IF0'*IF1*tau)
+% title('Vectorised Original code')
+% colorbar
+% 
+% subplot(2,2,3)
+% plot(IF0'*IF2*tau)
+% title('Orthogonal in \tau code')
+% colorbar
+% 
+% subplot(2,2,4)
+% plot(IF0'*IF3*tau)
+% title('Gendron/Ferreira/Verinaud code')
+% colorbar
 
 %% GEOMETRIC COVARAIANCE MATRIX
-IF1 = reshape(IF,nRes^2,nAct);
-IFCovariance = IF1'*IF1/Spup;
-
+IFperp = reshape(IF,nRes^2,nAct);
+IFCovariance = IFperp'*IFperp/Spup;
+    
 % Compute diagonalisation of matrix IFCovariance.
 [U1,S1]=svd(IFCovariance);
 S1=diag(real(S1));
@@ -103,8 +147,8 @@ if ~vectorised
     end
 else
     FT_IF = complex(zeros(oversampling*nRes, oversampling*nRes, nAct));
-
-        FT_IF= fft2(IF, oversampling*nRes,  oversampling*nRes);
+    
+    FT_IF= fft2(IF, oversampling*nRes,  oversampling*nRes);
 end
 clear IF % Last use of IF variable - JFS and MTa 2019-10-29
 
@@ -119,9 +163,9 @@ fprintf('Statistical Covariance Matrix Computation...')
 
 IF0 = 0*FT_IF;
 if ~vectorised
-for cpt = 1:nAct
-    IF0(:,:,cpt) = FT_IF(:,:,cpt).*phase_spectrum;
-end
+    for cpt = 1:nAct
+        IF0(:,:,cpt) = FT_IF(:,:,cpt).*phase_spectrum;
+    end
 else
     IF0 = bsxfun(@times, FT_IF, phase_spectrum);
 end
@@ -141,8 +185,54 @@ disp('done!')
 % IFFTCovariance = (real(IF2)*real(IF3) + imag(IF2)*imag(IF3))/norma + ...
 %    1i*((real(IF2)*imag(IF3) + imag(IF2)*real(IF3))/norma);
 
-% double diagonalisation
-Hp=M'*IFFTCovariance*M;
+if 0 %ccorreia 9/12/2022: working on a single EIGEN decomposition instead...
+    if exist('dmLowRes','var') & ~isempty(dmLowRes)
+    [x,y] = meshgrid(linspace(-tel.D/2, tel.D/2,sqrt(size(dmLowRes.modes.modes,1))));
+    COVMAT = phaseStats.covarianceMatrix(x+1i*y,atm);
+    iIFLowRes = pinv(full(dmLowRes.modes.modes));
+    COVU = iIFLowRes*COVMAT*iIFLowRes';
+    [U2,S2]=svd(COVU);
+    else
+    
+    COVMAT = phaseStats.covarianceMatrix(dm.modes.actuatorCoord,atm);
+    iIFCovariance = pinv(IFCovariance);
+    iIFperp = iIFCovariance*IFperp';
+    
+    Hp=COVMAT;%IFFTCovariance;
+    
+    %[U2,S2]=svd((iIFperp*IFperp)'*Hp*(iIFperp*IFperp)); % = eig(Hp'*Hp); in theory. In practice I do not find that...
+    
+    [U2,S2]=svd(iIFCovariance*IFCovariance*Hp*(iIFCovariance*IFCovariance)');
+    end
+   
+    
+    S2=diag(real(S2));
+    eig{2}=S2;
+    
+    U2=real(U2);
+    
+    % Modes To Commands matrix
+    Bp0=U2;
+    
+    % KL Modes excluding TT
+    kl_basis0SingleDiag = IFperp*Bp0;
+    
+    % KL Basis in the phase space, including TT (The 3 last modes are removed)
+    kl_basisSingleDiag=[TT kl_basis0SingleDiag(:,1:end-3)];
+    
+    %PLOT
+    % modes have a sound shape, 
+    for i = 1:25, subplot(5,5,i), imagesc(reshape(kl_basis0SingleDiag(:,i),480,480)),colorbar, end 
+    %... but are not orthogonal wrt phase (although close to the S1
+    %decomposition...
+    plot(diag(kl_basis0SingleDiag'*kl_basis0SingleDiag))
+    hold on
+    plot(S1)
+    set(gca, 'YScale','log')
+end
+
+% double diagonalisationb
+Hp=M'*IFFTCovariance*M; % should be in the general case Hp = inv(M'*IFCovariance*M) * IFFTCovariance * inv(M'*IFCovariance*M)'; Since (M'*IFCovariance*M) = I, the equation simplifies
 
 [U2,S2]=svd(Hp);
 
@@ -154,7 +244,7 @@ U2=real(U2);
 % Modes To Commands matrix
 Bp0=M*U2;
 % KL Modes excluding TT
-kl_basis0 = IF1*Bp0;
+kl_basis0 = IFperp*Bp0;
 
 % KL Basis in the phase space, including TT (The 3 last modes are removed)
 kl_basis=[TT kl_basis0(:,1:end-3)];

@@ -268,7 +268,7 @@ snapnow
 % Science Sources for performance estimation
 
 tel = tel - atm;
-cam = imager();
+cam = imager('nyquistSampling',2);
 science = science.*tel*cam;
 cam.referenceFrame = cam.frame;
 

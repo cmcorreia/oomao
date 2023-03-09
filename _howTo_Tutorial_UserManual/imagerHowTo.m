@@ -20,7 +20,7 @@ tel = telescope(D,...
 
 % H-science camera
 scienceH = source('wavelength',photometry.H);
-camH = imager('diameter',tel.D, 'fieldStopSize',30,'nyquistSampling',2);
+camH = imager('diameter',tel.D, 'fieldStopSize',30,'nyquistSampling',1);
 tel = tel - atm;
 scienceH = scienceH.*tel*camH;
 figure(31416)
@@ -43,13 +43,14 @@ camH.ee(1,:)
 intBoxDiam = linspace(0,96,50); % in pixels
 camH.eeWidth = intBoxDiam;
 camH.flush
+camH.ee(1) = 0; % the integration at zero given NaN and should be replaced by a 0.
 
 pixSizeInArcsec = scienceH.wavelength/tel.D/camH.imgLens.nyquistSampling/2*constants.radian2arcsec;
 difLimInArcSec = scienceH.wavelength/tel.D*constants.radian2arcsec;
 
 figure
 plot(intBoxDiam*pixSizeInArcsec/difLimInArcSec, squeeze(camH.ee(1,:)),'displayName','numerical integration in OTF space')
-title(['Ensquared energy, Airy function, sampling: \theta_{pix}=' num2str(camH.imgLens.nyquistSampling/2) '\lambda/D'])
+title(['Ensquared energy, Airy function, sampling: \theta_{pix}=' num2str(1/2/camH.imgLens.nyquistSampling) '\lambda/D'])
 xlabel('integration box diameter size, [\lambda/D units]')
 set(gca,'FontSize',16)
 grid on

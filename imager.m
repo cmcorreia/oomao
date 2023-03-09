@@ -159,7 +159,7 @@ classdef imager < detector
                                 a = obj.eeWidth(kIntegBoxSize);
                                 nOtf   = length(otfAO{kobj});
                                 %u      = linspace(-1,1,nOtf).*D;
-                                u      = linspace(-1,1,nOtf); % removed normalisation by D. The integration box is assumed in # of pixels. Conversion to physical units taken care outside of this function
+                                u      = linspace(-1,1,nOtf)/obj.imgLens.nyquistSampling; % removed normalisation by D. The integration box is assumed in # of pixels. Conversion to physical units taken care outside of this function
                                 [x,y]  = meshgrid(u);
                                 eeFilter ...
                                     = a^2*(sin(pi.*x.*a)./(pi.*x.*a)).*...

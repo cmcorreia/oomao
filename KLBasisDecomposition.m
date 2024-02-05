@@ -9,6 +9,8 @@ function [kl_basis, M2C, eig, coef] = KLBasisDecomposition(tel,atm,dm,oversampli
 %     the Influence Functions.
 %   By default, the Piston and Tip Tilt are removed from the Inf. Functions
 %   this can be changed easily.
+% EXAMPLE:
+% [kl_basis, M2C, eig, coef] = KLBasisDecomposition(tel,atm,dm,2,1);
 
 if ~exist('vectorised','var') || isempty(vectorised)
     vectorised = 0;

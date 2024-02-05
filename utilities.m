@@ -867,15 +867,22 @@ classdef utilities
             
         end
         
-        function [out,cvgce] = gerchbergSaxton(pupilPlaneImage,focalPlaneImage)
+        function [out,cvgce] = gerchbergSaxton(pupilPlaneImage,focalPlaneImage,initPhase,nIteration)
             
             source = sqrt(pupilPlaneImage);
             target = sqrt(focalPlaneImage);
             A = fftshift( ifft2( fftshift( target ) ) );
-            phaseA = pi*(rand(size(source))*2-1);
+            phaseA = pi*(rand(size(source))*2-1); 
+            if nargin == 3
+                phaseA = initPhase;
+            else
+                phaseA = 0;
+            end
             %             figure,imagesc(abs(A))
             n = length(source);
-            nIteration = 300;
+            if ~exist('nIteration','var') || isempty(nIteration)
+                nIteration = 300;
+            end
             kIteration = 0;
             cvgce = zeros(1,nIteration);
             
@@ -899,10 +906,11 @@ classdef utilities
                 kIteration = kIteration + 1;
                 
                 B = source.*exp(1i*phaseA);
-                C = fftshift( fft2( fftshift( B ) ) );
+                %C = fftshift( fft2( fftshift( B ) ) ); 
+                C = fftshift( fft2( fftshift( B ) ) ) / length(focalPlaneImage); % include the FFT2 normalisation by N^2 (yet here we're using the sqrt of the image)
                 D = target.*exp(1i*angle(C));
-                A = fftshift( ifft2( fftshift( D ) ) );
-                
+                % A = fftshift( ifft2( fftshift( D ) ) );
+                A = fftshift( ifft2( fftshift( D ) ) ) * length(focalPlaneImage);
                 set(h(1),'CData',abs([C,D]))
                 set(h(2),'CData',abs([B,A]))
                 

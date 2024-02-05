@@ -423,6 +423,7 @@ classdef deformableMirror < handle
                     fprintf('________________________\n')
                     
                     pokeMatrix = pokeMatrix*diag((1./diag(calibDmStroke)));
+                    obj.pokeMatrixFullFrame = obj.pokeMatrixFullFrame*diag((1./diag(calibDmStroke)));
                 else
                     pokeMatrix = obj.thePokeMatrix;
                 end

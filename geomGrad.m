@@ -112,7 +112,7 @@ classdef geomGrad < handle
             %                 nRes  = size(src(1).phase,1);
             %                 nAct = size(src(1).phase,3);
             %             end
-            
+            pupil0 = double(src(1).mask);
             for iSrc = 1:nSrc
                 % apply any offsets
                 if (~isempty(obj.offset) && any(obj.offset(:) ~= 0) || ~isempty(obj.rotation) && any(obj.rotation(:) ~= 0) ) && iSrc <= size(obj.offset,2)
@@ -130,7 +130,19 @@ classdef geomGrad < handle
                         else
                             phasei(:,:,kWave) = interp2(x0,y0,src(iSrc).phaseUnmasked(:,:,kWave),xi,yi,'cubic',0);
                         end
-                    end
+                     end
+%                      if ri ~= 0
+%                          pupili =  rotate(pupil0,ri*180/pi);
+%                          pupili = interp2(x0,y0,pupili,xi,yi,'cubic',0);
+%                      else
+%                          pupili = interp2(x0,y0,pupil0,xi,yi,'cubic',0);
+%                      end
+%                      pupili(pupili>=0.5) = 1; % restrict to max = 1
+%                      pupili(pupili<0.5) = 0; % restrict to min = 0
+%                      
+% 
+%                     ph = reshape(phasei,nx*nx,nz);
+%                     obj.slopes(:,:,iSrc) = obj.gradOp*ph(pupili(:),:);
                     
                     ph = reshape(phasei,nx*nx,nz);
                     obj.slopes(:,:,iSrc) = obj.gradOp*ph(obj.pupil(:),:);

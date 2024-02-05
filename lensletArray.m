@@ -309,28 +309,89 @@ classdef lensletArray < handle
                 [x0,y0] = meshgrid(linspace(-R,R,nx), linspace(-R,R,ny));
                 nSrc_ = numel(src);
                 phasei = zeros(nx, ny, nz);
+                val = zeros(nx, ny, nSrc_);
                 for iSrc = 1:nSrc_
-                    if size(obj.offset,2) >= iSrc                        
+                    if size(obj.offset,2) >= iSrc
                         xi = x0 - obj.offset(1,iSrc);
                         yi = y0 - obj.offset(2,iSrc);
                         ri = obj.rotation(iSrc);
                         for kWave = 1:nz
                             if ri ~= 0
-                                phasei(:,:,kWave) = rotate(src(iSrc).phaseUnmasked(:,:,kWave),ri*180/pi);
+                                if license('checkout','signal_toolbox')
+                                    phasei(:,:,kWave) = imrotate(src(iSrc).phaseUnmasked(:,:,kWave), ri*180/pi,'crop');
+                                else
+                                    phasei(:,:,kWave) = rotate(src(iSrc).phaseUnmasked(:,:,kWave),ri*180/pi);
+                                end
                                 phasei(:,:,kWave) = interp2(x0,y0,phasei(:,:,kWave),xi,yi,'cubic',0);
                             else
                                 phasei(:,:,kWave) = interp2(x0,y0,src(iSrc).phaseUnmasked(:,:,kWave),xi,yi,'cubic',0);
                             end
                         end
                         src(iSrc).resetPhase(phasei);
+                        
+                        % offset amplitude
+                        if ri ~= 0
+                            if license('checkout','signal_toolbox')
+                                amp = imrotate(src(iSrc).amplitudeUnmasked, ri*180/pi,'crop');
+                            else
+                                amp = rotate(src(iSrc).amplitudeUnmasked,ri*180/pi);
+                            end
+                            amp = interp2(x0,y0,amp,xi,yi,'cubic',0);
+                        else
+                            amp = interp2(x0,y0,src(iSrc).amplitude,xi,yi,'cubic',0);
+                        end
                     else
                         src(iSrc).resetPhase(buf);
+                        amp = src(iSrc).amplitude;
                     end
+                    val(:,:,iSrc) = amp.*exp(1i*src(iSrc).phaseUnmasked);
                 end
+                val = reshape(val, nx, ny*nSrc_);
+                
+            else % no offset case
+                val = src.catWave; % get complex amplitudes
             end
+            
+            %             % apply any offsets
+%             if ~isempty(obj.offset) && any(obj.offset(:) ~= 0) || ~isempty(obj.rotation) && any(obj.rotation(:) ~= 0)
+%                 buf = src.phaseUnmasked;
+%                 [nx, ny, nz] = size(src(1).phaseUnmasked);
+%                 R = 0.5;
+%                 [x0,y0] = meshgrid(linspace(-R,R,nx), linspace(-R,R,ny));
+%                 nSrc_ = numel(src);
+%                 phasei = zeros(nx, ny, nz);
+%                 val = zeros(nx, ny, nSrc_);
+%                 for iSrc = 1:nSrc_
+%                     if size(obj.offset,2) >= iSrc                        
+%                         xi = x0 - obj.offset(1,iSrc);
+%                         yi = y0 - obj.offset(2,iSrc);
+%                         ri = obj.rotation(iSrc);
+%                         for kWave = 1:nz
+%                             if ri ~= 0
+%                                 if license('checkout','signal_toolbox')
+%                                     phasei(:,:,kWave) = imrotate(src(iSrc).phaseUnmasked(:,:,kWave), ri*180/pi,'crop');
+%                                 else
+%                                     phasei(:,:,kWave) = rotate(src(iSrc).phaseUnmasked(:,:,kWave),ri*180/pi);
+%                                 end
+%                                 phasei(:,:,kWave) = interp2(x0,y0,phasei(:,:,kWave),xi,yi,'cubic',0);
+%                             else
+%                                 phasei(:,:,kWave) = interp2(x0,y0,src(iSrc).phaseUnmasked(:,:,kWave),xi,yi,'cubic',0);
+%                             end
+%                         end
+%                         src(iSrc).resetPhase(phasei);
+%                     else
+%                         src(iSrc).resetPhase(buf);
+%                     end
+%                     val(:,:,iSrc) = src(iSrc).amplitudeUnmasked.*exp(1i*src(iSrc).phaseUnmasked);
+%                 end
+%                 val = reshape(val, nx, ny*nSrc_);
+%                 
+%             else
+%                 val = src.catWave; % get complex amplitudes
+%             end
+            
 
             
-            val = src.catWave; % get complex amplitudes
             if ndims(src)==3 % if src object array is 3D then it is an LGS hence collapse the 3D imagelets 
                 obj.sumStack = true;
             end

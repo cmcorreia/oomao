@@ -246,17 +246,21 @@ classdef shackHartmann < hgsetget
                 checkOut(obj.log,obj);
             end
         end
+        
+        
         function pixelScales(obj,ngs,tel)
-            %% PIXELSCALES Display the lenslet and detector pixel scales in mas on-sky 
+            %% PIXELSCALES Display the lenslet and detector pixel scales in mas on-sky
             d   = tel.D/size(obj.validLenslet,1);
-                ps = obj.lenslets.pixelScale(ngs,tel);
-                fprintf('The current lenslet pixel-scale is %4.2f mas\n',ps.convert('mas')) % sampling of the electic field
-                nPxDetector = size(obj.camera.frame,1)/obj.lenslets.nLenslet;
-                binFactor = 2*obj.lenslets.fieldStopSize*obj.lenslets.nyquistSampling/nPxDetector;
-                lo2DInMas = ngs.wavelength/(2*d)*constants.radian2mas;
-                detectorPixelSizeInMas = lo2DInMas/obj.lenslets.nyquistSampling*binFactor;
-                fprintf('The current detector pixel-scale is %4.2f mas\n',detectorPixelSizeInMas); % sky-angle of the detector pixels after binning
+            ps = obj.lenslets.pixelScale(ngs,tel);
+            fprintf('The current electric-field sample scale is %4.2f mas\n',ps.convert('mas')) % sampling of the electic field
+            nPxDetector = size(obj.camera.frame,1)/obj.lenslets.nLenslet;
+            binFactor = 2*obj.lenslets.fieldStopSize*obj.lenslets.nyquistSampling/nPxDetector;
+            lo2DInMas = ngs.wavelength/(2*d)*constants.radian2mas;
+            detectorPixelSizeInMas = lo2DInMas/obj.lenslets.nyquistSampling*binFactor;
+            fprintf('The current detector pixel-scale is %4.2f mas\n',detectorPixelSizeInMas); % sky-angle of the detector pixels after binning
         end
+        
+        
         function display(obj,ngs,tel)
             %% DISPLAY Display object informations
             %
